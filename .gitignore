@@ -1,0 +1,18 @@
+
+# You shouldn't edit these files, as they're generated automatically from ccxt.js by build scripts.
+# Please read https://github.com/ccxt/ccxt/blob/master/CONTRIBUTING.md#multilanguage-support for details.
+#
+*.exe
+*.test
+*.prof
+*.swp
+logs/*
+.DS_Store
+.idea/*
+.vscode
+.sgcrc
+nohup.out
+__debug_bin
+default.etcd/*
+.vscode
+nohup.out
