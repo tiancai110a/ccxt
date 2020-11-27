@@ -2,6 +2,7 @@ import ccxt
 import time
 import os
 import asyncio
+
 good_coin = ['BTC', 'ETH', 'XRP', 'BCH', 'EOS', 'XLM', 'LTC', 'ADA', 'XMR', 'TRX', 'BNB', 'ONT', 'NEO', 'DCR']
 # good_coin = ['BTC', 'ETH', 'XRP']
 good_exchange_name = ['binance', 'fcoin', 'gateio', 'huobipro', 'kucoin', 'okex','bcex','bibox','bigone','bitfinex','bitforex',
@@ -128,6 +129,7 @@ async def find_trade_object(in_symbol,exchange_list):
                      max_bid1,bid_amount,max_bid1*bid_amount,bid_exchange.name))
         if price_diff < 0:
             print('oooooooo unlucky symbol {},no pair to make money'.format(symbol))
+            return min_ask1,None,max_bid1,None
         return percent,price_diff,trade_volume,profits, min_ask1,ask_amount,min_ask1*ask_amount, ask_exchange.name,ask_time,\
                max_bid1,bid_amount,max_bid1*bid_amount,bid_exchange.name,bid_time
     else :
