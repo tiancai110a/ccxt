@@ -35,7 +35,14 @@ def get_exchange_list(good_list):
         exchange = getattr(ccxt,exchange_name)()
         if exchange :
             exchange_list.append(exchange)
-            exchange.load_markets()#TODO 需不需要每次都load
+            try:
+                exchange.load_markets()  #TODO 需不需要每次都load
+            except Exception as e:
+                print('---get_exchange_list load_markets exception is {},exchange is {}'.format(e.args[0], exchange.name))
+            try:
+                exchange.set_sandbox_mode(True)
+            except Exception as e:
+                print('---get_exchange_list set_sandbox_mode exception is {},exchange is {}'.format(e.args[0], exchange.name))
     return exchange_list 
 
 
@@ -61,7 +68,7 @@ async def find_trade_object(symbol,exchange_list):
             try:
                 exchange.load_markets()
             except Exception as e:
-                print('-------XXXXXX11111 load_markets exception is {},exchange is {},symbol is {}'.format(e.args[0],exchange.name,symbol))
+                print('---find_trade_object load_markets exception is {},exchange is {},symbol is {}'.format(e.args[0],exchange.name,symbol))
                 continue
             print('exchange markets {} is None'.format(exchange))
             continue
@@ -70,7 +77,7 @@ async def find_trade_object(symbol,exchange_list):
             loop.run_until_complete(task)
             orderbook =  task.result() 
         except Exception as e:
-            print('-------XXXXXX22222 fetch_order_book exception is {},exchange is {},symbol is {}'.format(e.args[0], exchange.name, symbol))
+            print('-------find_trade_object fetch_order_book exception is {},exchange is {},symbol is {}'.format(e.args[0], exchange.name, symbol))
             continue
         date_time = exchange.last_response_headers['Date']
         bid1 = orderbook['bids'][0][0] if len(orderbook['bids']) > 0 else None
@@ -118,6 +125,7 @@ async def find_trade_object(symbol,exchange_list):
 
 def tick():
         tasks = []
+        set_proxy()
         for base in good_coin:
             symbol = base + '/' + def_quote
             tasks.append(find_trade_object(symbol,good_exchange_list))
@@ -128,7 +136,6 @@ def tick():
 
 
 if __name__ == '__main__':
-    set_proxy()
     good_exchange_list = get_exchange_list(good_exchange_name)
 
     print('exchange list is {},\ncoin list is {},\nquote is {}'.format(good_exchange_name, good_coin, def_quote))
