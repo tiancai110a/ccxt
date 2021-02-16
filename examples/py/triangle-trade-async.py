@@ -4,6 +4,16 @@ import time
 import socket
 
 import ccxt.async_support as ccxta
+# TODO
+# ws 推送行情 
+# 加入frequency limit
+# 跨交易所三角套利
+# 多空双持 用来做套保的合约同时也用来做套利 或者加入合约平仓或者爆仓的停止机制,或者做平仓套利
+# 自动均仓,平衡基础货币
+# 被动挂单 
+# 成交推送微信, 可视化资产
+# ...
+
 
 """
     三角套利demo2：寻找三角套利空间，包含下单模块，异步请求处理版
@@ -26,7 +36,7 @@ default_mid_cur = 'USDT'
 delay = 2
 # 轮询订单次数query_times 3
 query_times = 3
-# 最小下单数量
+# 最小下单价格 #TODO 必须全部大于10美元
 min_notional = 10 
 
 # good_exchange_name = ['binance', 'fcoin', 'gateio', 'huobipro', 'kucoin', 'okex']
@@ -60,10 +70,15 @@ min_trade_percent = 0.2
 # 是否真正下单
 order_flag = False
 
+sandbox_mode = True
+
+proxy_flag = False
+
 
 def set_proxy():
-    os.environ.setdefault('http_proxy', 'http://127.0.0.1:1087')
-    os.environ.setdefault('https_proxy', 'http://127.0.0.1:1087')
+    if proxy_flag:
+        os.environ.setdefault('http_proxy', 'http://127.0.0.1:1087')
+        os.environ.setdefault('https_proxy', 'http://127.0.0.1:1087')
 
 
 # 获取指定交易所列表
@@ -72,7 +87,8 @@ def get_exchange_list(good_list):
     for exchange_name in good_list:
         exchange = getattr(ccxta,exchange_name)()
         if exchange:
-            #exchange.set_sandbox_mode(True)
+            if sandbox_mode:
+                exchange.set_sandbox_mode(True)
             exchange_list.append(exchange)
     return exchange_list
 
@@ -209,13 +225,13 @@ async def find_trade_chance(exchange,base='LTC',quote='BTC',mid='USDT'):
 
 
 # 正循环套利
-async def postive_trade(exchange, base_quote, base_mid, quote_mid, trade_size, price_base_quote_ask1, price_base_mid_bid1,
+async def postive_trade(exchange, base_quote, base_mid, quote_mid, trade_size, price_base_quote_ask1, price_base_mid_bid1, #TODO 交易失败撤单
                   price_quote_mid_ask1):
     print('开始正向套利 postive_trade base_quote:{}, base_mid:{}, quote_mid:{}, trade_size:{}, '
           'price_base_quote_ask1:{}, price_base_mid_bid1:{}, price_quote_mid_ask1:{}'
           .format(base_quote, base_mid, quote_mid, trade_size, price_base_quote_ask1, price_base_mid_bid1, price_quote_mid_ask1))
     # 买入P3 base_quote
-    result = await exchange.create_order(base_quote, 'limit', 'buy', trade_size, price_base_quote_ask1)
+    result = await exchange.create_order(base_quote, 'limit', 'buy', trade_size, price_base_quote_ask1) #TODO  同时下单 而不是串行下单
 
     retry = 0
     already_hedged_amount = 0
@@ -265,7 +281,7 @@ async def postive_trade(exchange, base_quote, base_mid, quote_mid, trade_size, p
 
 
 # 逆循环套利
-async def negative_trade(exchange, base_quote, base_mid, quote_mid, trade_size, price_base_quote_bid1, price_base_mid_ask1,
+async def negative_trade(exchange, base_quote, base_mid, quote_mid, trade_size, price_base_quote_bid1, price_base_mid_ask1,#TODO 交易失败撤单
                    price_quote_mid_bid1):
     print('开始逆循环套利 negative_trade base_quote:{}, base_mid:{}, quote_mid:{}, trade_size:{}, '
           'price_base_quote_bid1:{}, price_base_mid_ask1:{}, price_quote_mid_bid1:{}'
@@ -308,7 +324,7 @@ async def negative_trade(exchange, base_quote, base_mid, quote_mid, trade_size, 
         
 
 # 对冲卖
-async def hedge_sell(exchange, symbol, sell_size, price):
+async def hedge_sell(exchange, symbol, sell_size, price):# TODO 买卖失败开始动态尝试, 而不是直接用市价单交易
     print('开始对冲卖 hedge_sell symbol:{},sell_size:{},price:{}'.format(symbol, sell_size, price))
     result = await exchange.create_order(symbol, 'limit', 'sell', sell_size, price)
     # time.sleep(delay/10)
@@ -325,7 +341,7 @@ async def hedge_sell(exchange, symbol, sell_size, price):
 
 
 # 对冲买
-async def hedge_buy(exchange, symbol, buy_size, price):
+async def hedge_buy(exchange, symbol, buy_size, price):# TODO 买卖失败开始动态尝试, 而不是直接用市价单交易
     print('开始对冲买 hedge_buy symbol:{},buy_size:{},price:{}'.format(symbol, buy_size, price))
     result = await exchange.create_order(symbol, 'limit', 'buy', buy_size, price)
     # time.sleep(delay/10)
@@ -368,8 +384,8 @@ async def hedge_buy(exchange, symbol, buy_size, price):
 '''
 
 
-# 获取下单买入数量 需要跟账户可用余额结合起来，数量单位统一使用base(P3:LTC）来计算
-def get_buy_size(free_base, free_quote, free_mid, size_base_quote_ask1, size_base_mid_bid1, price_base_quote_ask1, price_quote_mid_ask1):
+# 获取下单买入数量 需要跟账户可用余额结合起来，数量单位统一使用base(P3:LTC）来计算 #TODO 最小下单金额10美元
+def get_buy_size(free_base, free_quote, free_mid, size_base_quote_ask1, size_base_mid_bid1, price_base_quote_ask1, price_quote_mid_ask1): #base quote 直接改成p1,p2,p3
 
     # 1. LTC/BTC卖方盘口吃单数量 P3 卖BTC得LTC
     base_quote_to_buy_size = size_base_quote_ask1 * order_ratio
@@ -411,7 +427,7 @@ def get_buy_size(free_base, free_quote, free_mid, size_base_quote_ask1, size_bas
     '''
 
 
-# 获取下单卖出数量 需要跟账户可用余额结合起来，数量单位统一使用base(P3:LTC）来计算
+# 获取下单卖出数量 需要跟账户可用余额结合起来，数量单位统一使用base(P3:LTC）来计算 #TODO 最小下单金额10美元
 def get_sell_size(free_base, free_quote, free_mid, size_base_quote_bid1, size_base_mid_ask1, price_base_mid_ask1, price_base_quote_ask1):
     # 1 LTC/BTC 买方盘口吃单数量P3 卖LTC得BTC
     base_quote_to_sell = size_base_quote_bid1 * order_ratio
