@@ -25,12 +25,18 @@ import ccxt.async_support as ccxta
     可以获得多少单位的quote currency（比如BTC）。
     中间资产mid currency可以是USDT等稳定币
 """
-# P1 quote_mid BTC/USDT
-# P2 base_mid LTC/USDT
-# P3 base_quote LTC/BTC
+# quote_mid p1 BTC/USDT
+# base_quote p2 LTC/BTC
+# base_mid p3 LTC/USDT
 default_base_cur = 'LTC'
 default_quote_cur = 'BTC'
 default_mid_cur = 'USDT'
+
+cost_P1 = 0.03 #获取手续费
+cost_P2 = 0.03
+cost_P3 = 0.03
+
+slippage = 0.01
 
 # delay 2 second
 delay = 2
@@ -114,38 +120,43 @@ async def find_trade_chance(exchange,base='LTC',quote='BTC',mid='USDT'):
         print('load_markets e is {} ,exchange is {}'.format(e.args[0],exchange.name))
         await exchange.close()
         return
-    cur_quote_mid = quote + '/' + mid
-    cur_base_mid = base+'/'+mid
-    cur_base_quote = base + '/' + quote
+    
+    cur_p1 = quote + '/' + mid #P1 symbol
+    cur_p2 = base + '/' + quote #P2 symbol
+    cur_p3 = base+'/'+mid #P3 symbol
+
+    print('P1:{},P2:{},P3: {}'.format(cur_p1,cur_p2,cur_p3))
 
     try:
-        book_quote_mid = await exchange.fetch_order_book(cur_quote_mid)
+        book_p1 = await exchange.fetch_order_book(cur_p1)
         # time.sleep(delay)
         await asyncio.sleep(delay)
-        book_base_mid = await exchange.fetch_order_book(cur_base_mid)
+        book_p2 = await exchange.fetch_order_book(cur_p2)
         # time.sleep(delay)
         await asyncio.sleep(delay)
-        book_base_quote = await exchange.fetch_order_book(cur_base_quote)
+        book_p3 = await exchange.fetch_order_book(cur_p3)
     except Exception as e:
         print('fetch_order_book e is {} ,exchange is {}'.format(e.args[0],exchange.name))
         await exchange.close()
         return
 
     # P1
-    price_quote_mid_bid1 = book_quote_mid['bids'][0][0] if len(book_quote_mid['bids']) > 0 else None
-    price_quote_mid_ask1 = book_quote_mid['asks'][0][0] if len(book_quote_mid['asks']) > 0 else None
-    size_quote_mid_bid1 = book_quote_mid['bids'][0][1] if len(book_quote_mid['bids']) > 0 else None
-    size_quote_mid_ask1 = book_quote_mid['asks'][0][1] if len(book_quote_mid['asks']) > 0 else None
-    # P2
-    price_base_mid_bid1 = book_base_mid['bids'][0][0] if len(book_base_mid['bids']) > 0 else None
-    price_base_mid_ask1 = book_base_mid['asks'][0][0] if len(book_base_mid['asks']) > 0 else None
-    size_base_mid_bid1 = book_base_mid['bids'][0][1] if len(book_base_mid['bids']) > 0 else None
-    size_base_mid_ask1 = book_base_mid['asks'][0][1] if len(book_base_mid['asks']) > 0 else None
+    price_p1_bid1 = book_p1['bids'][0][0] if len(book_p1['bids']) > 0 else None
+    price_p1_ask1 = book_p1['asks'][0][0] if len(book_p1['asks']) > 0 else None
+    size_p1_bid1 = book_p1['bids'][0][1] if len(book_p1['bids']) > 0 else None
+    size_p1_ask1 = book_p1['asks'][0][1] if len(book_p1['asks']) > 0 else None
     # P3
-    price_base_quote_bid1 = book_base_quote['bids'][0][0] if len(book_base_quote['bids']) > 0 else None
-    price_base_quote_ask1 = book_base_quote['asks'][0][0] if len(book_base_quote['asks']) > 0 else None
-    size_base_quote_bid1 = book_base_quote['bids'][0][1] if len(book_base_quote['bids']) > 0 else None
-    size_base_quote_ask1 = book_base_quote['asks'][0][1] if len(book_base_quote['asks']) > 0 else None
+    price_p2_bid1 = book_p2['bids'][0][0] if len(book_p2['bids']) > 0 else None
+    price_p2_ask1 = book_p2['asks'][0][0] if len(book_p2['asks']) > 0 else None
+    size_p2_bid1 = book_p2['bids'][0][1] if len(book_p2['bids']) > 0 else None
+    size_p2_ask1 = book_p2['asks'][0][1] if len(book_p2['asks']) > 0 else None
+    # P3
+    price_p3_bid1 = book_p3['bids'][0][0] if len(book_p3['bids']) > 0 else None
+    price_p3_ask1 = book_p3['asks'][0][0] if len(book_p3['asks']) > 0 else None
+    size_p3_bid1 = book_p3['bids'][0][1] if len(book_p3['bids']) > 0 else None
+    size_p3_ask1 = book_p3['asks'][0][1] if len(book_p3['asks']) > 0 else None
+
+
     date_time = exchange.last_response_headers['Date']
 
     #检查正循环套利
@@ -155,7 +166,7 @@ async def find_trade_chance(exchange,base='LTC',quote='BTC',mid='USDT'):
         就产生了套利机会
         P3<P2/P1
         操作：买-卖/买
-        价格条件提交：base_quote_ask1卖1 < base_mid_bid1买1/quote_mid_ask1卖1
+        价格条件提交：p2_ask1卖1 < p3_bid1买1/p1_ask1卖1
         交易量Q3:三者中取最小下单量，单位要统一为P3交易对的个数
         利润：Q3*P1*(P2/P1-P3)
     '''
@@ -169,45 +180,56 @@ async def find_trade_chance(exchange,base='LTC',quote='BTC',mid='USDT'):
     free_quote = balance[quote]['free'] if balance[quote]['free'] else 0
     free_mid = balance[mid]['free'] if balance[mid]['free'] else 0
 
-    trade_size = get_buy_size(free_base, free_quote, free_mid, size_base_quote_ask1, size_quote_mid_ask1, 
-                                  price_base_quote_ask1, price_quote_mid_ask1)
-    if price_base_quote_ask1 < price_base_mid_bid1/price_quote_mid_ask1:
-        price_diff = price_quote_mid_ask1*(price_base_mid_bid1/price_quote_mid_ask1 - price_base_quote_ask1)
+
+    if (1-slippage) *(price_p1_ask1 * price_p2_ask1)/(1-cost_P1)(1-cost_P2) < price_p3_bid1*(1+slippage)(1-cost_P3):
+        trade_size = get_buy_size(free_base, free_quote, free_mid, size_p2_ask1, size_p1_ask1, 
+                                    price_p2_ask1, price_p1_ask1)
+        if trade_size * price_p1_ask1 <= min_notional || trade_size * price_p2_ask1 <= min_notional || trade_size * price_p3_bid1 <= min_notional:
+            print("balance not enough")
+            return
+
+        # 价格差值
+        price_diff = price_p3_bid1*(1+slippage)(1-cost_P3) - (1-slippage) * (1-slippage) *(price_p1_ask1 * price_p2_ask1)/(1-cost_P1)(1-cost_P2)
         profit = trade_size*price_diff
-        if profit >= min_notional:
-            print('++++++发现正套利机会 profit is {} USDT,price_diff is {},trade_size is {},P3: {} < P2/P1: {},time:{}\n\n'.format(
-                profit, price_diff, trade_size, price_base_quote_ask1, price_base_mid_bid1/price_quote_mid_ask1, date_time))
-            print('P1: buy1:{},{},sell1:{},{}'.format(price_quote_mid_bid1,size_quote_mid_bid1,price_quote_mid_ask1,size_quote_mid_ask1))
-            print('P2: buy1:{},{},sell1:{},{}'.format(price_base_mid_bid1, size_base_mid_bid1, price_base_mid_ask1,size_base_mid_ask1))
-            print('P3: buy1:{},{},sell1:{},{}'.format(price_base_quote_bid1, size_base_quote_bid1, price_base_quote_ask1,size_base_quote_ask1))
-            # 开始正循环套利
-            if order_flag:
-                await postive_trade(exchange, cur_base_quote, cur_base_mid, cur_quote_mid, trade_size, price_base_quote_ask1,
-                            price_base_mid_bid1, price_quote_mid_ask1)
-            await exchange.close()
-            # 检查逆循环套利
-            '''
-                P3>P2/P1
-                操作：卖-买/卖
-                价格条件：base_quote_bid1买1 > base_mid_ask1卖1/quote_mid_bid1买1
-                交易量Q3:三者中取最小下单量
-                利润：Q3*P1*(P3-P2/P1)
-            '''
-    elif price_base_quote_bid1 > price_base_mid_ask1/price_quote_mid_bid1+service_charge+slippage:
-        trade_size = min(size_base_quote_bid1,size_base_mid_ask1,size_quote_mid_bid1/price_base_quote_bid1)
-        price_diff = price_quote_mid_bid1*(price_base_quote_bid1-price_base_mid_ask1/price_quote_mid_bid1)
+
+        print('++++++发现正套利机会 profit is {} USDT,price_diff is {},trade_size is {},P3: {} < P2/P1: {},time:{}\n\n'.format(
+            profit, price_diff, trade_size, price_p2_ask1, price_p3_bid1/price_p1_ask1, date_time))
+        print('P1: buy1:{},{},sell1:{},{}'.format(price_p1_bid1,size_p1_bid1,price_p1_ask1,size_p1_ask1))
+        print('P2: buy1:{},{},sell1:{},{}'.format(price_p3_bid1, size_p3_bid1, price_p3_ask1,size_p3_ask1))
+        print('P3: buy1:{},{},sell1:{},{}'.format(price_p2_bid1, size_p2_bid1, price_p2_ask1,size_p2_ask1))
+        # 开始正循环套利
+        if order_flag:
+            await postive_trade(exchange, cur_p2, cur_p3, cur_p1, trade_size, price_p2_ask1,
+                        price_p3_bid1, price_p1_ask1)
+        await exchange.close()
+        # 检查逆循环套利
+        '''
+            P3>P2/P1
+            操作：卖-买/卖
+            价格条件：p2_bid1买1 > p3_ask1卖1/p1_bid1买1
+            交易量Q3:三者中取最小下单量
+            利润：Q3*P1*(P3-P2/P1)
+        '''
+
+    elif (1-slippage) *(price_p1_bid1 * price_p2_bid1)/(1-cost_P1)(1-cost_P2) > price_p3_ask1*(1 - slippage)(1-cost_P3):
+        trade_size = get_sell_size(free_base, free_quote, free_mid, size_p2_bid1, size_p3_ask1, price_p3_ask1, price_p2_ask1)
+
+        if trade_size * price_p1_bid1 <= min_notional || trade_size * price_p2_bid1 <= min_notional || trade_size * price_p3_ask1 <= min_notional:
+            print("balance not enough")
+            return
+
+        price_diff = (1-slippage) *(price_p1_bid1 * price_p2_bid1)/(1-cost_P1)(1-cost_P2) > price_p3_bid1*(1 - slippage)(1-cost_P3)
         profit = trade_size*price_diff
-        if profit >= min_notional:
-            print('P1: buy1:{},{},sell1:{},{}'.format(price_quote_mid_bid1,size_quote_mid_bid1,price_quote_mid_ask1,size_quote_mid_ask1))
-            print('P2: buy1:{},{},sell1:{},{}'.format(price_base_mid_bid1, size_base_mid_bid1, price_base_mid_ask1,size_base_mid_ask1))
-            print('P3: buy1:{},{},sell1:{},{}'.format(price_base_quote_bid1, size_base_quote_bid1, price_base_quote_ask1,size_base_quote_ask1))
-            print('++++++发现逆套利机会 profit is {},price_diff is {},trade_size is {},P3: {} > P2/P1: {},time:{}\n\n'.format(
-            profit, price_diff, trade_size, price_base_quote_bid1, price_base_mid_ask1/price_quote_mid_bid1, date_time))
-            # 开始逆循环套利
-            if order_flag:
-                await negative_trade(exchange, cur_base_quote, cur_base_mid, cur_quote_mid, trade_size, price_base_quote_bid1,
-                            price_base_mid_ask1, price_quote_mid_bid1)
-            await exchange.close()
+        print('P1: buy1:{},{},sell1:{},{}'.format(price_p1_bid1,size_p1_bid1,price_p1_ask1,size_p1_ask1))
+        print('P2: buy1:{},{},sell1:{},{}'.format(price_p3_bid1, size_p3_bid1, price_p3_ask1,size_p3_ask1))
+        print('P3: buy1:{},{},sell1:{},{}'.format(price_p2_bid1, size_p2_bid1, price_p2_ask1,size_p2_ask1))
+        print('++++++发现逆套利机会 profit is {},price_diff is {},trade_size is {},P3: {} > P2/P1: {},time:{}\n\n'.format(
+        profit, price_diff, trade_size, price_p2_bid1, price_p3_ask1/price_p1_bid1, date_time))
+        # 开始逆循环套利
+        if order_flag:
+            await negative_trade(exchange, cur_p2, cur_p3, cur_p1, trade_size, price_p2_bid1,
+                        price_p3_ask1, price_p1_bid1)
+        await exchange.close()
     else:
         #print('在交易所{}没有找到三角套利机会,time:{}\n\n'.format(exchange.name,date_time))
         await exchange.close()
@@ -218,20 +240,21 @@ async def find_trade_chance(exchange,base='LTC',quote='BTC',mid='USDT'):
     先去LTC/BTC吃单买入LTC，卖出BTC，然后根据LTC/BTC的成交量，使用多线程，
     同时在LTC/USDT和BTC/USDT市场进行对冲。LTC/USDT市场吃单卖出LTC，BTC/USDT市场吃单买入BTC。
     P3<P2/P1
-    base_quote<quote_mid/quote_mid
+    p2<p1/p1
     操作：买-卖/买
 
 '''
 
 
 # 正循环套利
-async def postive_trade(exchange, base_quote, base_mid, quote_mid, trade_size, price_base_quote_ask1, price_base_mid_bid1, #TODO 交易失败撤单
-                  price_quote_mid_ask1):
-    print('开始正向套利 postive_trade base_quote:{}, base_mid:{}, quote_mid:{}, trade_size:{}, '
-          'price_base_quote_ask1:{}, price_base_mid_bid1:{}, price_quote_mid_ask1:{}'
-          .format(base_quote, base_mid, quote_mid, trade_size, price_base_quote_ask1, price_base_mid_bid1, price_quote_mid_ask1))
-    # 买入P3 base_quote
-    result = await exchange.create_order(base_quote, 'limit', 'buy', trade_size, price_base_quote_ask1) #TODO  同时下单 而不是串行下单
+async def postive_trade(exchange, p2, p3, p1, trade_size, price_p2_ask1, price_p3_bid1, #TODO 交易失败撤单
+                  price_p1_ask1):
+    print('开始正向套利 postive_trade p2:{}, p3:{}, p1:{}, trade_size:{}, '
+          'price_p2_ask1:{}, price_p3_bid1:{}, price_p1_ask1:{}'
+          .format(p2, p3, p1, trade_size, price_p2_ask1, price_p3_bid1, price_p1_ask1))
+    # 买入P3 p2
+    if order_flag:
+        result = await exchange.create_order(p2, 'limit', 'buy', trade_size, price_p2_ask1) #TODO  同时下单 而不是串行下单
 
     retry = 0
     already_hedged_amount = 0
@@ -239,12 +262,12 @@ async def postive_trade(exchange, base_quote, base_mid, quote_mid, trade_size, p
         if retry == query_times:
             # cancel order
             print('正向套利 postive_trade，达到轮询上限仍未完成交易，取消订单,retry is {}'.format(retry))
-            await exchange.cancel_order(result['id'], base_quote)
+            await exchange.cancel_order(result['id'], p2)
             break
         # time.sleep(delay)
         await asyncio.sleep(delay)
         # 延时delay后查询订单成交量
-        order = await exchange.fetch_order(result['id'], base_quote)
+        order = await exchange.fetch_order(result['id'], p2)
         filled = order['filled']
         amount = order['amount']
         already_hedged_amount = filled
@@ -252,10 +275,10 @@ async def postive_trade(exchange, base_quote, base_mid, quote_mid, trade_size, p
         if filled/amount < min_trade_percent:
             retry += 1
             continue
-        # 对冲卖P2 base_mid
-        await hedge_sell(exchange, base_mid, filled, price_base_mid_bid1)
-        # 对冲买P1 quote_mid
-        await hedge_buy(exchange, quote_mid, filled, price_quote_mid_ask1)
+        # 对冲卖P2 p3
+        await hedge_sell(exchange, p3, filled, price_p3_bid1)
+        # 对冲买P1 p1
+        await hedge_buy(exchange, p1, filled, price_p1_ask1)
 
         # 实际成交量完成目标，退出轮询
         if already_hedged_amount >= trade_size:
@@ -274,21 +297,22 @@ async def postive_trade(exchange, base_quote, base_mid, quote_mid, trade_size, p
     同时在LTC/USDT和BTC/USDT市场进行对冲。
     LTC/USDT市场吃单买入LTC，BTC/USDT市场吃单卖出BTC。
     P3>P2/P1
-    base_quote>base_mid/quote_mid
+    p2>p3/p1
     操作：卖-买/卖
 
 '''
 
 
 # 逆循环套利
-async def negative_trade(exchange, base_quote, base_mid, quote_mid, trade_size, price_base_quote_bid1, price_base_mid_ask1,#TODO 交易失败撤单
-                   price_quote_mid_bid1):
-    print('开始逆循环套利 negative_trade base_quote:{}, base_mid:{}, quote_mid:{}, trade_size:{}, '
-          'price_base_quote_bid1:{}, price_base_mid_ask1:{}, price_quote_mid_bid1:{}'
-          .format(base_quote, base_mid, quote_mid, trade_size, price_base_quote_bid1, price_base_mid_ask1,
-                  price_quote_mid_bid1))
+async def negative_trade(exchange, p2, p3, p1, trade_size, price_p2_bid1, price_p3_ask1,#TODO 交易失败撤单
+                   price_p1_bid1):
+    print('开始逆循环套利 negative_trade p2:{}, p3:{}, p1:{}, trade_size:{}, '
+          'price_p2_bid1:{}, price_p3_ask1:{}, price_p1_bid1:{}'
+          .format(p2, p3, p1, trade_size, price_p2_bid1, price_p3_ask1,
+                  price_p1_bid1))
     # 卖出LTC 卖P3
-    result = exchange.create_order(base_quote, 'limit', 'sell', trade_size, price_base_quote_bid1)
+    if order_flag:
+        result = exchange.create_order(p2, 'limit', 'sell', trade_size, price_p2_bid1)
     
     retry = 0
     already_hedged_amount = 0
@@ -296,12 +320,12 @@ async def negative_trade(exchange, base_quote, base_mid, quote_mid, trade_size, 
         if retry == query_times:
             # cancel order
             print('逆向套利 negative_trade，达到轮询上限仍未完成交易，取消订单,retry is {}'.format(retry))
-            await exchange.cancel_order(result['id'], base_quote)
+            await exchange.cancel_order(result['id'], p2)
             break
         # time.sleep(delay)
         await asyncio.sleep(delay)
         # 延时delay后查询订单成交量
-        order = await exchange.fetch_order(result['id'], base_quote)
+        order = await exchange.fetch_order(result['id'], p2)
         filled = order['filled']
         amount = order['amount']
         already_hedged_amount = filled
@@ -310,9 +334,9 @@ async def negative_trade(exchange, base_quote, base_mid, quote_mid, trade_size, 
             retry += 1
             continue
         # 对冲买LTC P2
-        await hedge_buy(exchange, base_mid, filled, price_base_mid_ask1)
+        await hedge_buy(exchange, p3, filled, price_p3_ask1)
         # 对冲卖BTC P1
-        await hedge_sell(exchange, quote_mid, filled, price_quote_mid_bid1)
+        await hedge_sell(exchange, p1, filled, price_p1_bid1)
         # 实际成交量完成目标，退出轮询
         if already_hedged_amount >= trade_size:
             print('逆向套利 negative_trade 实际成交量完成目标，退出轮询')
@@ -324,7 +348,7 @@ async def negative_trade(exchange, base_quote, base_mid, quote_mid, trade_size, 
         
 
 # 对冲卖
-async def hedge_sell(exchange, symbol, sell_size, price):# TODO 买卖失败开始动态尝试, 而不是直接用市价单交易
+async def hedge_sell(exchange, symbol, sell_size, price):# TODO 动态尝试不断加码, 而不是直接用市价单交易
     print('开始对冲卖 hedge_sell symbol:{},sell_size:{},price:{}'.format(symbol, sell_size, price))
     result = await exchange.create_order(symbol, 'limit', 'sell', sell_size, price)
     # time.sleep(delay/10)
@@ -341,7 +365,7 @@ async def hedge_sell(exchange, symbol, sell_size, price):# TODO 买卖失败开�
 
 
 # 对冲买
-async def hedge_buy(exchange, symbol, buy_size, price):# TODO 买卖失败开始动态尝试, 而不是直接用市价单交易
+async def hedge_buy(exchange, symbol, buy_size, price):# TODO 动态尝试不断加码, 而不是直接用市价单交易
     print('开始对冲买 hedge_buy symbol:{},buy_size:{},price:{}'.format(symbol, buy_size, price))
     result = await exchange.create_order(symbol, 'limit', 'buy', buy_size, price)
     # time.sleep(delay/10)
@@ -384,21 +408,22 @@ async def hedge_buy(exchange, symbol, buy_size, price):# TODO 买卖失败开始
 '''
 
 
-# 获取下单买入数量 需要跟账户可用余额结合起来，数量单位统一使用base(P3:LTC）来计算 #TODO 最小下单金额10美元
-def get_buy_size(free_base, free_quote, free_mid, size_base_quote_ask1, size_base_mid_bid1, price_base_quote_ask1, price_quote_mid_ask1): #base quote 直接改成p1,p2,p3
+# 获取下单买入数量 需要跟账户可用余额结合起来，数量单位统一使用base(P3:LTC）来计算
+def get_buy_size(free_base, free_quote, free_mid, size_p2_ask1, size_p3_bid1, price_p2_ask1, price_p1_ask1): #base quote 直接改成p1,p2,p3
 
     # 1. LTC/BTC卖方盘口吃单数量 P3 卖BTC得LTC
-    base_quote_to_buy_size = size_base_quote_ask1 * order_ratio
+    p2_to_buy_size = size_p2_ask1 * order_ratio
     # 2. LTC/USDT买方盘口吃单数量 P2 卖LTC得USDT
-    base_mid_to_sell_size = size_base_mid_bid1 * order_ratio
+    p3_to_sell_size = size_p3_bid1 * order_ratio
     # 3. LTC/BTC账户中可以用来买LTC的BTC额度及可以置换的LTC个数 P3 卖BTC得LTC
-    base_quote_can_buy_size = free_quote * (1-reserve_ratio_quote) / price_base_quote_ask1
+    p2_can_buy_size = free_quote * (1-reserve_ratio_quote) / price_p2_ask1
     # 4. LTC/USDT账户中可以用来卖的LTC额度 P2 卖LTC得USDT
-    base_mid_can_sell_size = free_base * (1-reserve_ratio_base)
+    p3_can_sell_size = free_base * (1-reserve_ratio_base)
     # 5. BTC/USDT账户中可以用来买BTC的USDT额度及可以置换的BTC个数和对应的LTC个数 P1 卖USDT得BTC
-    quote_mid_can_buy_size = free_mid * (1 - reserve_ratio_mid) / price_quote_mid_ask1 / price_base_quote_ask1
-    return min(base_quote_to_buy_size, base_mid_to_sell_size, base_quote_can_buy_size, quote_mid_can_buy_size, 
-               base_mid_can_sell_size)
+    p1_can_buy_size = free_mid * (1 - reserve_ratio_mid) / price_p1_ask1 / price_p2_ask1
+    return min(p2_to_buy_size, p3_to_sell_size, p2_can_buy_size, p1_can_buy_size, 
+               p3_can_sell_size)
+
 
 '''
         P3>P2/P1
@@ -428,18 +453,19 @@ def get_buy_size(free_base, free_quote, free_mid, size_base_quote_ask1, size_bas
 
 
 # 获取下单卖出数量 需要跟账户可用余额结合起来，数量单位统一使用base(P3:LTC）来计算 #TODO 最小下单金额10美元
-def get_sell_size(free_base, free_quote, free_mid, size_base_quote_bid1, size_base_mid_ask1, price_base_mid_ask1, price_base_quote_ask1):
+def get_sell_size(free_base, free_quote, free_mid, size_p2_bid1, size_p3_ask1, price_p3_ask1, price_p2_ask1):
     # 1 LTC/BTC 买方盘口吃单数量P3 卖LTC得BTC
-    base_quote_to_sell = size_base_quote_bid1 * order_ratio
+    p2_to_sell = size_p2_bid1 * order_ratio
     # 2 LTC/USDT 卖方盘口吃单数量P2 卖USDT得LTC
-    base_mid_to_buy = size_base_mid_ask1 * order_ratio
+    p3_to_buy = size_p3_ask1 * order_ratio
     # 3 LTC/BTC 账户LTC中可以用来卖出LTC的数量P3，卖LTC得BTC
-    base_quote_can_sell = free_base * (1-reserve_ratio_base)
+    p2_can_sell = free_base * (1-reserve_ratio_base)
     # 4 LTC/USDT 账户USDT中可以用来购买LTC的数量P2，卖USDT得LTC
-    base_mid_can_buy = free_mid * (1-reserve_ratio_mid) / price_base_mid_ask1
+    p3_can_buy = free_mid * (1-reserve_ratio_mid) / price_p3_ask1
     # 5 BTC/USDT 账户中可以用来卖出BTC的数量，转换为LTC数量(卖BTC得LTC)P1，卖BTC得USDT
-    quote_mid_can_sell = free_quote * (1-reserve_ratio_quote) / price_base_quote_ask1
-    return min(base_quote_to_sell,base_mid_to_buy,base_quote_can_sell,base_mid_can_buy,quote_mid_can_sell)
+    p1_can_sell = free_quote * (1-reserve_ratio_quote) / price_p2_ask1
+
+    return min(p2_to_sell,p3_to_buy,p2_can_sell,p3_can_buy,p1_can_sell)
 
 
 def get_host_ip():
