@@ -36,15 +36,15 @@ default_mid_cur = 'USDT'
 
 test_Exchange ='binance' # 测试使用的单一的交易所
 
-cost_P1 = 0.00075
-cost_P2 = 0.00075
-cost_P3 = 0.00075
+cost_P1 = 0.002
+cost_P2 = 0.002
+cost_P3 = 0.002
 
 
 slippage = 0
 slippage_loss = 0.0001 # 即使亏本也要成交的滑点 为了使交易维持下去
 slippage_max_loss = 1.001 # 最多亏0.1个点 否则就不交易
-delay = 2
+delay = 1
 query_times = 3
 # 最小下单价格(usdt)
 min_notional = 10
@@ -145,7 +145,6 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
         print('fetch_order_book e is [{}] ,exchange is {}'.format(e.args[0],exchange.name))
         await exchange.close()
         return
-    print("======1")
     # P1
     price_p1_bid1 = book_p1['bids'][0][0] if len(book_p1['bids']) > 0 else None
     price_p1_ask1 = book_p1['asks'][0][0] if len(book_p1['asks']) > 0 else None
@@ -206,20 +205,19 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
     try:
         balance = await exchange.fetch_balance()
     except Exception as e:
-            print('-------find_trade_object fetch_balance exception is {}'.format(e.args[0]))
-            await exchange.close()
-            return 
-    #print("------>>",balance)
+        print('-------find_trade_object fetch_balance exception is {}'.format(e.args[0]))
+        await exchange.close()
+        return 
     if  base not in  balance.keys():
         print("{} balance not exist".format(base))
         return
 
-    if  quote not  in  balance.keys():
+    if  quote not in balance.keys():
         print("{} balance not exist".format(quote))
         return
         
     if mid not in balance.keys():
-         print("{} balance not exist".format(mid))
+        print("{} balance not exist".format(mid))
         return
 
 
@@ -237,33 +235,33 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
     print("positive unit profit:", positive_sell - positive_buy)
     print("nagative unit profit", negative_sell - negative_buy)
     if positive_buy < positive_sell:
-        trade_size = get_buy_size(free_base, free_quote, free_mid, size_p2_ask1, size_p1_ask1, 
+        base_size = get_buy_size(free_base, free_quote, free_mid, size_p2_ask1, size_p1_ask1, 
                                     price_p2_ask1, price_p1_ask1)
 
-        if trade_size * price_p1_ask1 <= min_notional:
-            print("{} balance min_notional error: amount: {}".format(p1_trade_pair,trade_size * free_base))
+          #base_size 个eos 要拿这么多个usdt来买
+        quote_size = base_size * price_p2_ask1 / (1-cost_P2) 
+        mid_size = quote_size *  price_p1_ask1 / (1-cost_P1)
+        
+        if mid_size  <= min_notional:
+            print("{} balance min_notional error: ,balance:{}".format(p1_trade_pair,mid_size))
             return
-            
-        if trade_size * price_p2_ask1 *  <= min_notional:
-            print("{} balance min_notional error: amount: {}".format(p2_trade_pair,trade_size * free_quote))
+        if quote_size  <= 0.001:
+            print("{} balance min_notional error: ,balance:{}".format(p2_trade_pair,quote_size * price_p2_bid1))
             return
 
-        if trade_size * price_p3_bid1 <= min_notional:
-            print("{} balance min_notional error: amount: {}".format(p3_trade_pair,trade_size * free_quote))
+        if base_size <= 0.001:
+            print("{} balance min_notional error: ,balance:{}".format(p3_trade_pair,base_size * price_p3_ask1))
             return
 
         # 价格差值
         price_diff =  positive_sell - positive_buy
-        profit = trade_size * price_diff * price_p3_bid1
+        profit = base_size * price_diff * price_p3_bid1
 
-        print('++++++发现正套利机会 profit is {} USDT,price_diff is {},trade_size is {},P3: {} < P2/P1: {},time:{}\n\n'.format(
-            profit, price_diff, trade_size, price_p2_ask1, price_p3_bid1/price_p1_ask1, date_time))
-        print('P1: buy1:{},{},sell1:{},{}'.format(price_p1_bid1,size_p1_bid1,price_p1_ask1,size_p1_ask1))
-        print('P2: buy1:{},{},sell1:{},{}'.format(price_p3_bid1, size_p3_bid1, price_p3_ask1,size_p3_ask1))
-        print('P3: buy1:{},{},sell1:{},{}'.format(price_p2_bid1, size_p2_bid1, price_p2_ask1,size_p2_ask1))
+        print('++++++发现正套利机会 profit is {}(USDT), {} trade_size:{} ,{} trade_size: {} ,{} trade_size:{}, time: {}\n\n'.format(
+            profit,mid, mid_size, quote, quote_size, base , base_size , date_time))
         # 开始正循环套利
         if order_flag:
-            await postive_trade(exchange, p2_trade_pair, p3_trade_pair, p1_trade_pair, trade_size, price_p2_ask1,
+            await postive_trade(exchange, p2_trade_pair, p3_trade_pair, p1_trade_pair,mid_size,quote_size, base_size, price_p2_ask1,
                         price_p3_bid1, price_p1_ask1)
         await exchange.close()
         # 检查逆循环套利
@@ -275,36 +273,47 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
             利润：Q3*P1*(P3-P2/P1)
         '''
 
-    elif negative_sell > negative_buy:
-        print("negative ======",negative_sell - negative_buy)
-        trade_size = get_sell_size(free_base, free_quote, free_mid, size_p2_bid1, size_p3_ask1, price_p3_ask1, price_p2_ask1)
+    if negative_sell > negative_buy:
+        base_size = get_sell_size(free_base, free_quote, free_mid, size_p2_bid1, size_p3_ask1, price_p3_ask1, price_p2_ask1)
+        #base_size 个eos 要拿这么多个usdt来买
+        mid_size = base_size  * price_p3_ask1 / (1 - cost_P3)
 
-        # if trade_size * price_p1_bid1 <= min_notional:
-        #     print("{} balance min_notional error: trade_size: {} ,balance:{}".format(p1_trade_pair,trade_size, free_base))
-        #     return
-        # if trade_size * price_p2_bid1 <= min_notional:
-        #     print("{} balance min_notional error: trade_size: {} ,balance:{}".format(p2_trade_pair,trade_size, free_quote))
-        #     return
+        # base_size 个 eos  卖掉能产生 这么多个btc
+        quote_size = base_size *  price_p2_bid1 / (1- cost_P2) 
 
-        # if trade_size * price_p3_ask1 <= min_notional:
-        #     print("{} balance min_notional error: trade_size: {} ,balance:{}".format(p3_trade_pair,trade_size, free_quote))
-        #     return
+        # 这么多个btc 卖掉能产生这么多个usdt
+        usdt_collect =  quote_size * price_p1_bid1 /  (1-cost_P1)
+
+        print("p1:{}, size:{},amount:{} ,p2:{}, size:{} ,amount:{},p3: {} , size:{}".format(
+        p1_trade_pair, quote_size, usdt_collect, 
+        p2_trade_pair, base_size,base_size*price_p2_bid1,
+        p3_trade_pair, mid_size
+        ))
+        
+        if mid_size  <= min_notional:
+            print("{} balance min_notional error: ,balance:{}".format(p1_trade_pair,mid_size))
+            return
+        if quote_size  <= 0.0001:
+            print("{} balance min_notional error: ,balance:{}".format(p2_trade_pair,quote_size * price_p1_ask1))
+            return
+
+        if base_size <= 0.01:
+            print("{} balance min_notional error: ,balance:{}".format(p3_trade_pair,base_size * price_p3_ask1))
+            return
+
 
 
         price_diff = negative_sell -  negative_buy
         # 单位usdt
-        profit = trade_size * price_diff * price_p3_ask1
+        profit = base_size * price_diff * price_p3_ask1
 
-        print('P1: buy1:{},{},sell1:{},{}'.format(price_p1_bid1,size_p1_bid1,price_p1_ask1,size_p1_ask1))
-        print('P2: buy1:{},{},sell1:{},{}'.format(price_p3_bid1, size_p3_bid1, price_p3_ask1,size_p3_ask1))
-        print('P3: buy1:{},{},sell1:{},{}'.format(price_p2_bid1, size_p2_bid1, price_p2_ask1,size_p2_ask1))
-        print('++++++发现逆套利机会 profit is {} usdt,price_diff is {},trade_size is {},P3: {} > P2/P1: {},time:{}\n\n'.format(profit, price_diff, trade_size, price_p2_bid1, price_p3_ask1/price_p1_bid1, date_time))
+        print('++++++发现负套利机会 profit is {}(USDT), {} trade_size:{} ,{} trade_size: {} ,{} trade_size:{}, time: {}\n\n'.format(
+            profit,mid, mid_size, quote, quote_size, base , base_size , date_time))
         # 开始逆循环套利
         if order_flag:
-            await negative_trade(exchange, p2_trade_pair, p3_trade_pair, p1_trade_pair, trade_size, price_p2_bid1,price_p2_ask1,price_p3_ask1, price_p1_bid1)
+            await negative_trade(exchange, p2_trade_pair, p3_trade_pair, p1_trade_pair, mid_size, quote_size, base_size, price_p2_bid1,price_p2_ask1,price_p3_ask1, price_p1_bid1)
         await exchange.close()
     else:
-        #print('在交易所{}没有找到三角套利机会,time:{}\n\n'.format(exchange.name,date_time))
         await exchange.close()
 
 '''
@@ -320,57 +329,24 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
 
 
 # 正循环套利
-async def postive_trade(exchange, p2, p3, p1, trade_size, price_p2_ask1, price_p3_bid1, #TODO 交易失败撤单
-                  price_p1_ask1):
-    print('开始正向套利 postive_trade p2:{}, p3:{}, p1:{}, trade_size:{}, '
-          'price_p2_ask1:{}, price_p3_bid1:{}, price_p1_ask1:{}'
-          .format(p2, p3, p1, trade_size, price_p2_ask1, price_p3_bid1, price_p1_ask1))
-    # 买入P3 p2
+async def postive_trade(exchange, p2, p3, p1, mid_size, quote_size,base_size, price_p2_ask1, price_p3_bid1,price_p1_ask1):
     if not order_flag:
         return
-    if trade_size * price_p2_ask1 < min_notional:
-        print('postive_trade min_notional p2:{}, p3:{}, p1:{}, trade_size:{}, '
-        'price_p2_ask1:{}, price_p3_bid1:{}, price_p1_ask1:{}'
-        .format(p2, p3, p1, trade_size, price_p2_ask1, price_p3_bid1, price_p1_ask1))
-        return
-
+    print('开始正向套利 postive_trade p2:{}, p3:{}, p1:{}, base_size:{}, '
+          'price_p2_ask1:{}, price_p3_bid1:{}, price_p1_ask1:{}'
+          .format(p2, p3, p1, base_size, price_p2_ask1, price_p3_bid1, price_p1_ask1))
     try:
-        result = await exchange.create_order(p2, 'limit', 'buy', trade_size, price_p2_ask1) #TODO  同时下单 而不是串行下单
+        await hedge_buy(exchange, p2, base_size, price_p2_ask1)
+         # 对冲卖P2 p3
+        await hedge_sell(exchange, p3, base_size, price_p3_bid1)
+        # 对冲买P1 p1
+        await hedge_buy(exchange, p1, quote_size, price_p1_ask1)
     except Exception as e:
         print('create_order e is {} ,exchange is {}'.format(e.args[0],exchange.name))
         await exchange.close()
         return
-    retry = 0
-    already_hedged_amount = 0
-    while retry <= query_times:
-        if retry == query_times:
-            # cancel order
-            print('正向套利 postive_trade，达到轮询上限仍未完成交易，取消订单,retry is {}'.format(retry))
-            await exchange.cancel_order(result['id'], p2)
-            break
-        # time.sleep(delay)
-        await asyncio.sleep(delay)
-        # 延时delay后查询订单成交量
-        order = await exchange.fetch_order(result['id'], p2)
-        filled = order['filled']
-        amount = order['amount']
-        already_hedged_amount = filled
-        # 实际成交比例小于设定比例
-        if filled/amount < min_trade_percent:
-            retry += 1
-            continue
-        # 对冲卖P2 p3
-        await hedge_sell(exchange, p3, filled, price_p3_bid1)
-        # 对冲买P1 p1
-        await hedge_buy(exchange, p1, filled, price_p1_ask1)
 
-        # 实际成交量完成目标，退出轮询
-        if already_hedged_amount >= trade_size:
-            print('正向套利 postive_trade 实际成交量完成目标，退出轮询')
-            break
-        else:
-            retry += 1
-    print('结束正向套利 postive_trade already_hedged_amount is {},trade_size is {}'.format(already_hedged_amount,trade_size))
+    print('结束正向套利 postive_trade,base_size{} is {}'.format(base,base_size))
     await exchange.close()
 
 
@@ -388,56 +364,40 @@ async def postive_trade(exchange, p2, p3, p1, trade_size, price_p2_ask1, price_p
 
 
 # 逆循环套利
-async def negative_trade(exchange, p2, p3, p1, trade_size, price_p2_bid1,price_p2_ask1, price_p3_ask1,#TODO 交易失败撤单
+async def negative_trade(exchange, p2, p3, p1,mid_size, quote_size, base_size, price_p2_bid1,price_p2_ask1, price_p3_ask1,#TODO 交易失败撤单
                    price_p1_bid1):
-    print('开始逆循环套利 negative_trade p2:{}, p3:{}, p1:{}, trade_size:{}, '
+    print('开始逆循环套利 negative_trade p2:{}, p3:{}, p1:{}, base_size:{}, '
           'price_p2_bid1:{}, price_p3_ask1:{}, price_p1_bid1:{}'
-          .format(p2, p3, p1, trade_size, price_p2_bid1, price_p3_ask1,
+          .format(p2, p3, p1, base_size, price_p2_bid1, price_p3_ask1,
                   price_p1_bid1))
     # 卖出EOS 卖P3
     if not order_flag:
+        await exchange.close()
         return
     # P1:BTC/USDT,P2:EOS/BTC,P3: EOS/USDT
-    if trade_size * price_p3_ask1 < min_notional:
-        print('min_notional p2:{}, p3:{}, p1:{}, trade_size:{},trade_price:{}'
+    if base_size * price_p3_ask1 < min_notional:
+        print('min_notional p2:{}, p3:{}, p1:{}, base_size:{},trade_price:{}'
         'price_p2_bid1:{}, price_p3_ask1:{}, price_p1_bid1:{}'
-        .format(p2, p3, p1, trade_size,trade_size * price_p3_ask1, price_p2_bid1, price_p3_ask1,
-                price_p1_bid1,trade_size * price_p3_ask1))
+        .format(p2, p3, p1, base_size,base_size * price_p3_ask1, price_p2_bid1, price_p3_ask1,
+                price_p1_bid1,base_size * price_p3_ask1))
+        await exchange.close()
         return
     try:
-        result = await exchange.create_order(p2, 'limit', 'sell', trade_size, price_p2_bid1)
+        print("===>1")
+        await hedge_sell(exchange,p2, base_size, price_p2_bid1)
+        await hedge_buy(exchange, p3, base_size, price_p3_ask1)
+        await hedge_sell(exchange, p1,quote_size , price_p1_bid1)
     except Exception as e:
         print('create_order e is {} ,exchange is {}'.format(e.args[0],exchange.name))
         await exchange.close()
         return
-    
-    #await asyncio.sleep(delay) # TODO 减小等待时间
-    
-    # retry = 0
-    # already_hedged_amount = 0
-    # try:
-    #     order = await exchange.fetch_order(result['id'], p2)
-    # except Exception as e:
-    #     print('fetch_order e is {} ,exchange is {}'.format(e.args[0],exchange.name))
-    #     await exchange.close()
-    #     return
-    # await asyncio.sleep(delay)
-    # print(order)
-    # filled = order['filled']
-    # cost = order['cost']
-    await hedge_buy(exchange, p3, trade_size, price_p3_ask1)
-    await hedge_sell(exchange, p1, trade_size * price_p2_ask1 , price_p1_bid1)
-    print('结束逆向套利 negative_trade ,trade_size is {}'.format(trade_size))
+    print('结束逆向套利 negative_trade ,base_size is {}'.format(base_size))
     await exchange.close()
         
 
 # 对冲卖
-async def hedge_sell(exchange, symbol, sell_size, price):# TODO 动态尝试不断加码, 而不是直接用市价单交易
-    print('开始对冲卖 hedge_sell symbol:{},sell_size:{},price:{}'.format(symbol, sell_size, price))
-    
-    if sell_size * price < min_notional:
-           print('hedge_sell min_notional symbol:{},sell_size:{},price:{}'.format(symbol, sell_size, price))
-           return
+async def hedge_sell(exchange, symbol, sell_size, price):# TODO 动态尝试不断加码, 而不是直接用市价单交易 
+    print('开始对冲卖 hedge_sell symbol:{},sell_size:{},price:{} amount{}'.format(symbol, sell_size, price,sell_size * price))
     try:
         result = await exchange.create_order(symbol, 'limit', 'sell', sell_size, price)
     except Exception as e:
@@ -445,7 +405,7 @@ async def hedge_sell(exchange, symbol, sell_size, price):# TODO 动态尝试不�
         await exchange.close()
         return
     # time.sleep(delay/10)
-    await asyncio.sleep(delay/10)
+    await asyncio.sleep(delay)
     # # 延时delay/10秒后查询订单成交量
     # order = await exchange.fetch_order(result['id'], symbol)
     # filled = order['filled']
@@ -459,14 +419,11 @@ async def hedge_sell(exchange, symbol, sell_size, price):# TODO 动态尝试不�
 
 # 对冲买
 async def hedge_buy(exchange, symbol, buy_size, price):# TODO 动态尝试不断加码, 而不是直接用市价单交易
-    print('开始对冲买 hedge_buy symbol:{},buy_size:{},price:{}'.format(symbol, buy_size, price))
-    if buy_size * price < min_notional:
-         print('hedge_buy min_notional symbol:{},buy_size:{},price:{}'.format(symbol, buy_size, price))
-         return
+    print('开始对冲买 hedge_buy symbol:{},buy_size:{},price:{} amount:{}'.format(symbol, buy_size, price,buy_size * price))
     try:
         result = await exchange.create_order(symbol, 'limit', 'buy', buy_size, price)
     except Exception as e:
-        print('load_markets e is {} ,exchange is {}'.format(e.args[0],exchange.name))
+        print('hedge_buy e is {} ,exchange is {}'.format(e.args[0],exchange.name))
         await exchange.close()
         return
     # time.sleep(delay/10)
@@ -521,14 +478,14 @@ def get_buy_size(free_base, free_quote, free_mid, size_p2_ask1, size_p3_bid1, pr
 
     # 3. EOS/BTC账户中可以用来买EOS的BTC额度及可以置换的EOS个数 P3 卖BTC得EOS
     p2_can_buy_size = free_quote * (1-reserve_ratio_quote) / price_p2_ask1
-    p2_can_buy_size = p2_can_buy_size * (1 / (1 + cost_P2)) #算上手续费只能买这些
+    p2_can_buy_size = p2_can_buy_size * (1 - cost_P2) #算上手续费只能买这些
    
     # 4. EOS/USDT账户中可以用来卖的EOS额度 P2 卖EOS得USDT
     p3_can_sell_size = free_base * (1-reserve_ratio_base)
 
     # 5. BTC/USDT账户中可以用来买BTC的USDT额度及可以置换的BTC个数和对应的EOS个数 P1 卖USDT得BTC
     p1_can_buy_size = free_mid * (1 - reserve_ratio_mid) / price_p1_ask1 / price_p2_ask1
-    p1_can_buy_size = p1_can_buy_size *  (1 / (1 + cost_P1))  #算上手续费只能买这些
+    p1_can_buy_size = p1_can_buy_size * (1 - cost_P1) * ( 1- cost_P2)  #算上手续费只能买这些
 
     return min(p2_to_buy_size, p3_to_sell_size, p2_can_buy_size, p1_can_buy_size, 
                p3_can_sell_size)
