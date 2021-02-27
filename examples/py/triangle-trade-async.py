@@ -36,16 +36,13 @@ default_mid_cur = 'USDT'
 
 test_Exchange ='binance' # 测试使用的单一的交易所
 
-cost_P1 = 0.002
-cost_P2 = 0.002
-cost_P3 = 0.002
+cost_P1 = 0.00075
+cost_P2 = 0.00075
+cost_P3 = 0.00075
 
 
 slippage = 0
-slippage_loss = 0.0001 # 即使亏本也要成交的滑点 为了使交易维持下去
-slippage_max_loss = 1.001 # 最多亏0.1个点 否则就不交易
 delay = 1
-query_times = 3
 # 最小下单价格(usdt)
 min_notional = 10
 
@@ -226,21 +223,32 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
     free_mid = balance[mid]['free'] if balance[mid]['free'] else 0
 
     print("free:",free_base, free_quote,free_mid)
-    positive_buy = (1 + slippage) * price_p1_ask1 * price_p2_ask1 / (1 - cost_P1) * (1 - cost_P2)
+    positive_buy = (1 + slippage) * price_p1_ask1 * price_p2_ask1  * (1 + cost_P1) * (1 + cost_P2)
     positive_sell  =  price_p3_bid1 * (1 - slippage) * (1 - cost_P3)
 
-    negative_sell = (1-slippage) * price_p1_bid1 * price_p2_bid1/ (1 - cost_P1) * (1 - cost_P2)
-    negative_buy = price_p3_ask1 * (1 + slippage) * (1 - cost_P3)
+    negative_sell = (1-slippage) * price_p1_bid1 * price_p2_bid1 / (1 + cost_P1) * (1 + cost_P2)
+    negative_buy = price_p3_ask1 * (1 + slippage) * (1 + cost_P3)
 
     print("positive unit profit:", positive_sell - positive_buy)
     print("nagative unit profit", negative_sell - negative_buy)
     if positive_buy < positive_sell:
         base_size = get_buy_size(free_base, free_quote, free_mid, size_p2_ask1, size_p1_ask1, 
                                     price_p2_ask1, price_p1_ask1)
+        base_size = round(base_size ,2)
+        #base_size 个eos 要拿这么多个btc来买
+        quote_size = round(base_size * price_p2_ask1 * (1 + cost_P2)  ,6)
+        # quote_size这么多个btc要拿这么多个usdt来买
+        mid_size = quote_size *  price_p1_ask1 / (1 + cost_P1)
 
-          #base_size 个eos 要拿这么多个usdt来买
-        quote_size = base_size * price_p2_ask1 / (1-cost_P2) 
-        mid_size = quote_size *  price_p1_ask1 / (1-cost_P1)
+        # base_size 这么多个eos 卖出能得到这么多个usdt
+        usdt_collect =  base_size * price_p3_bid1 *  (1 - cost_P3)
+
+        print("p1:{}, size:{},amount:{} ,p2:{}, size:{} ,amount:{},p3: {} , size:{}".format(
+        p1_trade_pair, quote_size, usdt_collect, 
+        p2_trade_pair, base_size,base_size*price_p2_bid1,
+        p3_trade_pair, mid_size
+        ))
+
         
         if mid_size  <= min_notional:
             print("{} balance min_notional error: ,balance:{}".format(p1_trade_pair,mid_size))
@@ -275,14 +283,18 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
 
     if negative_sell > negative_buy:
         base_size = get_sell_size(free_base, free_quote, free_mid, size_p2_bid1, size_p3_ask1, price_p3_ask1, price_p2_ask1)
-        #base_size 个eos 要拿这么多个usdt来买
-        mid_size = base_size  * price_p3_ask1 / (1 - cost_P3)
+        base_size = round(base_size ,2)
+        #base_size 个eos 卖出得到这么多个btc
+        quote_size =round( base_size * price_p2_bid1 / (1 + cost_P2) , 6)
+        
 
-        # base_size 个 eos  卖掉能产生 这么多个btc
-        quote_size = base_size *  price_p2_bid1 / (1- cost_P2) 
+        #这么多个btc 卖掉能产生这么多个usdt
+        usdt_collect =  quote_size * price_p1_bid1 /  (1 + cost_P1)
 
-        # 这么多个btc 卖掉能产生这么多个usdt
-        usdt_collect =  quote_size * price_p1_bid1 /  (1-cost_P1)
+
+        # 要买 base_size 个 eos 需要这么多个usdt
+        mid_size = base_size *  price_p3_ask1 * (1+ cost_P3)
+
 
         print("p1:{}, size:{},amount:{} ,p2:{}, size:{} ,amount:{},p3: {} , size:{}".format(
         p1_trade_pair, quote_size, usdt_collect, 
