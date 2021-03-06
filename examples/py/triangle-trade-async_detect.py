@@ -38,7 +38,7 @@ import json
 # quote_mid p1 BTC/USDT
 # base_quote p2 EOS/BTC
 # base_mid p3 EOS/USDT
-default_base_cur = 'ADA'
+default_base_cur = 'EOS'
 default_quote_cur = 'BTC'
 default_mid_cur = 'USDT'
 
@@ -62,7 +62,8 @@ min_notional = 10
 
 good_exchange_name = [test_Exchange]
 #good_coin = ['ETH', 'XRP', 'BCH', 'EOS', 'XLM', 'EOS', 'ADA', 'XMR', 'TRX', 'BNB', 'ONT', 'NEO', 'DCR']
-good_coin = ['ADA']
+good_coin = ['ETH', 'XRP', 'BCH', 'EOS', 'XLM', 'LTC', 'ADA', 'XMR', 'TRX', 'BNB', 'ONT', 'NEO', 'DCR', 'LBA', 'RATING']
+#good_coin = ['EOS']
 
 
 has_config_exchange = [test_Exchange]
@@ -112,13 +113,12 @@ def print_stream_data_from_stream_buffer(binance_websocket_api_manager):
         else:
             try:
                 data = json.loads(oldest_stream_data_from_stream_buffer)
-                # symbol = data['data']['s']
-                # tickerData[symbol] ={}
-                # tickerData[symbol]['bid'] = data['data']['b']
-                # tickerData[symbol]['bidsize'] = data['data']['B']
-                # tickerData[symbol]['ask'] = data['data']['a']
-                # tickerData[symbol]['asksize'] = data['data']['A']
-                print(data)
+                symbol = data['data']['s']
+                tickerData[symbol] ={}
+                tickerData[symbol]['bid'] = data['data']['b']
+                tickerData[symbol]['bidsize'] = data['data']['B']
+                tickerData[symbol]['ask'] = data['data']['a']
+                tickerData[symbol]['asksize'] = data['data']['A']
                 time.sleep(0.01)
             except Exception:
                 binance_websocket_api_manager.add_to_stream_buffer(oldest_stream_data_from_stream_buffer)
@@ -164,56 +164,66 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
     p3_trade_pair_order = base + "/" +mid #P3 symbol
 
 
-    print('P1:{},P2:{},P3: {}'.format(p1_trade_pair,p2_trade_pair,p3_trade_pair))
+    print('begin  ================>>>>>>>>   P1:{},P2:{},P3: {}'.format(p1_trade_pair,p2_trade_pair,p3_trade_pair))
     if len(tickerData) < 3:
         return
+
+    if  p1_trade_pair not in  tickerData.keys():
+        print("{}  data not exist".format(p3_trade_pair))
+        return
+
+    if  p2_trade_pair not in tickerData.keys():
+        print("{} data not exist".format(p2_trade_pair))
+        return
+        
+    if p3_trade_pair not in tickerData.keys():
+        print("{} data not exist".format(p3_trade_pair))
+        return
     # P1
-    price_p1_bid1 = float(tickerData[p1_trade_pair]['bid'] if tickerData[p1_trade_pair]['bid'] else None)
-    price_p1_ask1 = float(tickerData[p1_trade_pair]['ask'] if tickerData[p1_trade_pair]['ask'] else None)
+    price_p1_bid1 = float(tickerData[p1_trade_pair]['bid'] if tickerData[p1_trade_pair]['bid'] else 0)
+    price_p1_ask1 = float(tickerData[p1_trade_pair]['ask'] if tickerData[p1_trade_pair]['ask'] else 0)
 
-    size_p1_bid1 =  float(tickerData[p1_trade_pair]['bidsize'] if tickerData[p1_trade_pair]['bidsize'] else None)
-    size_p1_ask1 =  float(tickerData[p1_trade_pair]['asksize'] if tickerData[p1_trade_pair]['asksize'] else None)
+    size_p1_bid1 =  float(tickerData[p1_trade_pair]['bidsize'] if tickerData[p1_trade_pair]['bidsize'] else 0)
+    size_p1_ask1 =  float(tickerData[p1_trade_pair]['asksize'] if tickerData[p1_trade_pair]['asksize'] else 0)
    
-    print(price_p1_bid1, price_p1_ask1, size_p1_bid1,size_p1_ask1)
+    #print(price_p1_bid1, price_p1_ask1, size_p1_bid1,size_p1_ask1)
     # # P3
-    price_p2_bid1 = float(tickerData[p2_trade_pair]['bid'] if tickerData[p2_trade_pair]['bid'] else None)
-    price_p2_ask1 = float(tickerData[p2_trade_pair]['ask'] if tickerData[p2_trade_pair]['ask'] else None)
+    price_p2_bid1 = float(tickerData[p2_trade_pair]['bid'] if tickerData[p2_trade_pair]['bid'] else 0)
+    price_p2_ask1 = float(tickerData[p2_trade_pair]['ask'] if tickerData[p2_trade_pair]['ask'] else 0)
 
-    size_p2_bid1 = float(tickerData[p2_trade_pair]['bidsize'] if tickerData[p2_trade_pair]['bidsize'] else None)
-    size_p2_ask1 = float(tickerData[p2_trade_pair]['asksize'] if tickerData[p2_trade_pair]['asksize'] else None)
+    size_p2_bid1 = float(tickerData[p2_trade_pair]['bidsize'] if tickerData[p2_trade_pair]['bidsize'] else 0)
+    size_p2_ask1 = float(tickerData[p2_trade_pair]['asksize'] if tickerData[p2_trade_pair]['asksize'] else 0)
    
     # # P3
-    price_p3_bid1 = float(tickerData[p3_trade_pair]['bid'] if tickerData[p3_trade_pair]['bid'] else None)
-    price_p3_ask1 = float(tickerData[p3_trade_pair]['ask'] if tickerData[p3_trade_pair]['ask'] else None)
+    price_p3_bid1 = float(tickerData[p3_trade_pair]['bid'] if tickerData[p3_trade_pair]['bid'] else 0)
+    price_p3_ask1 = float(tickerData[p3_trade_pair]['ask'] if tickerData[p3_trade_pair]['ask'] else 0)
 
-    size_p3_bid1 = float(tickerData[p3_trade_pair]['bidsize'] if tickerData[p3_trade_pair]['bidsize'] else None)
-    size_p3_ask1 = float(tickerData[p3_trade_pair]['asksize'] if tickerData[p3_trade_pair]['asksize'] else None)
+    size_p3_bid1 = float(tickerData[p3_trade_pair]['bidsize'] if tickerData[p3_trade_pair]['bidsize'] else 0)
+    size_p3_ask1 = float(tickerData[p3_trade_pair]['asksize'] if tickerData[p3_trade_pair]['asksize'] else 0)
    
 
-    if price_p1_bid1 is None or \
-    price_p1_ask1 is None or \
-    size_p1_bid1 is None or \
-    size_p1_ask1 is None:
+    if price_p1_bid1 == 0 or \
+    price_p1_ask1 == 0 or \
+    size_p1_bid1 == 0 or \
+    size_p1_ask1 == 0:
         print("symbol not avilable", p1_trade_pair)
         return
 
 
-    if price_p2_bid1 is None or \
-    price_p2_ask1 is None or \
-    size_p2_bid1 is None or \
-    size_p2_ask1 is None:
+    if price_p2_bid1 == 0 or \
+    price_p2_ask1 == 0 or \
+    size_p2_bid1 == 0 or \
+    size_p2_ask1 == 0:
         print("symbol not avilable", p2_trade_pair)
         return
 
-    if price_p3_bid1 is None or \
-    price_p3_ask1 is None or \
-    size_p3_bid1 is None or \
-    size_p3_ask1 is None:
+    if price_p3_bid1 == 0 or \
+    price_p3_ask1 == 0 or \
+    size_p3_bid1 == 0 or \
+    size_p3_ask1 == 0:
           print("symbol not avilable", p3_trade_pair)
           return
 
-
-    # TODO 手续费  
     # if exchange.has['fetchTradingFees']:
     #     fees = exchange.fetchTradingFees(code, since, limit, params)
     # else:
@@ -231,134 +241,134 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
         交易量Q3:三者中取最小下单量，单位要统一为P3交易对的个数
         利润：Q3*P1*(P2/P1-P3)
     '''
-    try:
-        balance = await exchange.fetch_balance()
-    except Exception as e:
-        print('-------find_trade_object fetch_balance exception is {}'.format(e.args[0]))
-        await exchange.close()
-        return 
-    if  base not in  balance.keys():
-        print("{} balance not exist".format(base))
-        return
+    # try:
+    #     balance = await exchange.fetch_balance()
+    # except Exception as e:
+    #     print('-------find_trade_object fetch_balance exception is {}'.format(e.args[0]))
+    #     await exchange.close()
+    #     return 
+    # if  base not in  balance.keys():
+    #     print("{} balance not exist".format(base))
+    #     return
 
-    if  quote not in balance.keys():
-        print("{} balance not exist".format(quote))
-        return
+    # if  quote not in balance.keys():
+    #     print("{} balance not exist".format(quote))
+    #     return
         
-    if mid not in balance.keys():
-        print("{} balance not exist".format(mid))
-        return
+    # if mid not in balance.keys():
+    #     print("{} balance not exist".format(mid))
+    #     return
 
 
-    free_base = balance[base]['free'] if balance[base]['free'] else 0
-    free_quote = balance[quote]['free'] if balance[quote]['free'] else 0
-    free_mid = balance[mid]['free'] if balance[mid]['free'] else 0
+    # free_base = balance[base]['free'] if balance[base]['free'] else 0
+    # free_quote = balance[quote]['free'] if balance[quote]['free'] else 0
+    # free_mid = balance[mid]['free'] if balance[mid]['free'] else 0
 
-    print("free:",free_base, free_quote,free_mid)
+    #print(p1_trade_pair,p2_trade_pair, p3_trade_pair, "free:",free_base, free_quote,free_mid)
     positive_buy = (1 + slippage) * price_p1_ask1 * price_p2_ask1  * (1 + cost_P1) * (1 + cost_P2)
     positive_sell  =  price_p3_bid1 * (1 - slippage) * (1 - cost_P3)
 
     negative_sell = (1-slippage) * price_p1_bid1 * price_p2_bid1 / (1 + cost_P1) * (1 + cost_P2)
     negative_buy = price_p3_ask1 * (1 + slippage) * (1 + cost_P3)
+    if positive_sell - positive_buy >0 or negative_sell - negative_buy >0:
+        print(p1_trade_pair,p2_trade_pair, p3_trade_pair,"positive unit profit:", positive_sell - positive_buy)
+        print(p1_trade_pair,p2_trade_pair, p3_trade_pair,"nagative unit profit", negative_sell - negative_buy)
+    # if positive_buy < positive_sell:
+    #     base_size = get_buy_size(free_base, free_quote, free_mid, size_p2_ask1, size_p1_ask1, 
+    #                                 price_p2_ask1, price_p1_ask1)
+    #     base_size = round(base_size ,2)
+    #     #base_size 个eos 要拿这么多个btc来买
+    #     quote_size = round(base_size * price_p2_ask1 * (1 + cost_P2)  ,6)
+    #     # quote_size这么多个btc要拿这么多个usdt来买
+    #     mid_size = quote_size *  price_p1_ask1 / (1 + cost_P1)
 
-    print("positive unit profit:", positive_sell - positive_buy)
-    print("nagative unit profit", negative_sell - negative_buy)
-    if positive_buy < positive_sell:
-        base_size = get_buy_size(free_base, free_quote, free_mid, size_p2_ask1, size_p1_ask1, 
-                                    price_p2_ask1, price_p1_ask1)
-        base_size = round(base_size ,2)
-        #base_size 个eos 要拿这么多个btc来买
-        quote_size = round(base_size * price_p2_ask1 * (1 + cost_P2)  ,6)
-        # quote_size这么多个btc要拿这么多个usdt来买
-        mid_size = quote_size *  price_p1_ask1 / (1 + cost_P1)
+    #     # base_size 这么多个eos 卖出能得到这么多个usdt
+    #     usdt_collect =  base_size * price_p3_bid1 *  (1 - cost_P3)
 
-        # base_size 这么多个eos 卖出能得到这么多个usdt
-        usdt_collect =  base_size * price_p3_bid1 *  (1 - cost_P3)
-
-        print("p1:{}, size:{},amount:{} ,p2:{}, size:{} ,amount:{},p3: {} , size:{}".format(
-        p1_trade_pair, quote_size, usdt_collect, 
-        p2_trade_pair, base_size,base_size*price_p2_bid1,
-        p3_trade_pair, mid_size
-        ))
+    #     print("p1:{}, size:{},amount:{} ,p2:{}, size:{} ,amount:{},p3: {} , size:{}".format(
+    #     p1_trade_pair, quote_size, usdt_collect, 
+    #     p2_trade_pair, base_size,base_size*price_p2_bid1,
+    #     p3_trade_pair, mid_size
+    #     ))
 
         
-        if mid_size  <= min_notional:
-            print("{} balance min_notional error: ,balance:{}".format(p1_trade_pair,mid_size))
-            return
-        if quote_size  <= 0.001:
-            print("{} balance min_notional error: ,balance:{}".format(p2_trade_pair,quote_size * price_p2_bid1))
-            return
+    #     if mid_size  <= min_notional:
+    #         print("{} balance min_notional error: ,balance:{}".format(p1_trade_pair,mid_size))
+    #         return
+    #     if quote_size  <= 0.001:
+    #         print("{} balance min_notional error: ,balance:{}".format(p2_trade_pair,quote_size * price_p2_bid1))
+    #         return
 
-        if base_size <= 0.001:
-            print("{} balance min_notional error: ,balance:{}".format(p3_trade_pair,base_size * price_p3_ask1))
-            return
+    #     if base_size <= 0.001:
+    #         print("{} balance min_notional error: ,balance:{}".format(p3_trade_pair,base_size * price_p3_ask1))
+    #         return
 
-        # 价格差值
-        price_diff =  positive_sell - positive_buy
-        profit = base_size * price_diff * price_p3_bid1
+    #     # 价格差值
+    #     price_diff =  positive_sell - positive_buy
+    #     profit = base_size * price_diff * price_p3_bid1
 
-        print('++++++发现正套利机会 profit is {}(USDT), {} trade_size:{} ,{} trade_size: {} ,{} trade_size:{}, time: {}\n\n'.format(
-            profit,mid, mid_size, quote, quote_size, base , base_size , date_time))
-        # 开始正循环套利
-        if order_flag:
-            await postive_trade(exchange, p2_trade_pair_order, p3_trade_pair_order, p1_trade_pair_order,mid_size,quote_size, base_size, price_p2_ask1,
-                        price_p3_bid1, price_p1_ask1)
-        await exchange.close()
+    #     print('++++++发现正套利机会 profit is {}(USDT), {} trade_size:{} ,{} trade_size: {} ,{} trade_size:{}, time: {}\n\n'.format(
+    #         profit,mid, mid_size, quote, quote_size, base , base_size , date_time))
+    #     # 开始正循环套利
+    #     if order_flag:
+    #         await postive_trade(exchange, p2_trade_pair_order, p3_trade_pair_order, p1_trade_pair_order,mid_size,quote_size, base_size, price_p2_ask1,
+    #                     price_p3_bid1, price_p1_ask1)
+    #     await exchange.close()
         # 检查逆循环套利
-        '''
-            P3>P2/P1
-            操作：卖-买/卖
-            价格条件：p2_bid1买1 > p3_ask1卖1/p1_bid1买1
-            交易量Q3:三者中取最小下单量
-            利润：Q3*P1*(P3-P2/P1)
-        '''
+        # '''
+        #     P3>P2/P1
+        #     操作：卖-买/卖
+        #     价格条件：p2_bid1买1 > p3_ask1卖1/p1_bid1买1
+        #     交易量Q3:三者中取最小下单量
+        #     利润：Q3*P1*(P3-P2/P1)
+        # '''
 
-    if negative_sell > negative_buy:
-        base_size = get_sell_size(free_base, free_quote, free_mid, size_p2_bid1, size_p3_ask1, price_p3_ask1, price_p2_ask1)
-        base_size = round(base_size ,2)
-        #base_size 个eos 卖出得到这么多个btc
-        quote_size =round( base_size * price_p2_bid1 / (1 + cost_P2) , 6)
+    # if negative_sell > negative_buy:
+    #     base_size = get_sell_size(free_base, free_quote, free_mid, size_p2_bid1, size_p3_ask1, price_p3_ask1, price_p2_ask1)
+    #     base_size = round(base_size ,2)
+    #     #base_size 个eos 卖出得到这么多个btc
+    #     quote_size =round( base_size * price_p2_bid1 / (1 + cost_P2) , 6)
         
 
-        #这么多个btc 卖掉能产生这么多个usdt
-        usdt_collect =  quote_size * price_p1_bid1 /  (1 + cost_P1)
+    #     #这么多个btc 卖掉能产生这么多个usdt
+    #     usdt_collect =  quote_size * price_p1_bid1 /  (1 + cost_P1)
 
 
-        # 要买 base_size 个 eos 需要这么多个usdt
-        mid_size = base_size *  price_p3_ask1 * (1+ cost_P3)
+    #     # 要买 base_size 个 eos 需要这么多个usdt
+    #     mid_size = base_size *  price_p3_ask1 * (1+ cost_P3)
 
 
-        print("p1:{}, size:{},amount:{} ,p2:{}, size:{} ,amount:{},p3: {} , size:{}".format(
-        p1_trade_pair, quote_size, usdt_collect, 
-        p2_trade_pair, base_size,base_size*price_p2_bid1,
-        p3_trade_pair, mid_size
-        ))
+    #     print("p1:{}, size:{},amount:{} ,p2:{}, size:{} ,amount:{},p3: {} , size:{}".format(
+    #     p1_trade_pair, quote_size, usdt_collect, 
+    #     p2_trade_pair, base_size,base_size*price_p2_bid1,
+    #     p3_trade_pair, mid_size
+    #     ))
         
-        if mid_size  <= min_notional:
-            print("{} balance min_notional error: ,balance:{}".format(p1_trade_pair,mid_size))
-            return
-        if quote_size  <= 0.0001:
-            print("{} balance min_notional error: ,balance:{}".format(p2_trade_pair,quote_size * price_p1_ask1))
-            return
+    #     if mid_size  <= min_notional:
+    #         print("{} balance min_notional error: ,balance:{}".format(p1_trade_pair,mid_size))
+    #         return
+    #     if quote_size  <= 0.0001:
+    #         print("{} balance min_notional error: ,balance:{}".format(p2_trade_pair,quote_size * price_p1_ask1))
+    #         return
 
-        if base_size <= 0.01:
-            print("{} balance min_notional error: ,balance:{}".format(p3_trade_pair,base_size * price_p3_ask1))
-            return
+    #     if base_size <= 0.01:
+    #         print("{} balance min_notional error: ,balance:{}".format(p3_trade_pair,base_size * price_p3_ask1))
+    #         return
 
 
 
-        price_diff = negative_sell -  negative_buy
-        # 单位usdt
-        profit = base_size * price_diff * price_p3_ask1
+    #     price_diff = negative_sell -  negative_buy
+    #     # 单位usdt
+    #     profit = base_size * price_diff * price_p3_ask1
 
-        print('++++++发现负套利机会 profit is {}(USDT), {} trade_size:{} ,{} trade_size: {} ,{} trade_size:{}, time: {}\n\n'.format(
-            profit,mid, mid_size, quote, quote_size, base , base_size , date_time))
-        # 开始逆循环套利
-        if order_flag:
-            await negative_trade(exchange, p2_trade_pair_order, p3_trade_pair_order, p1_trade_pair_order, mid_size, quote_size, base_size, price_p2_bid1,price_p2_ask1,price_p3_ask1, price_p1_bid1)
-        await exchange.close()
-    else:
-        await exchange.close()
+    #     print('++++++发现负套利机会 profit is {}(USDT), {} trade_size:{} ,{} trade_size: {} ,{} trade_size:{}, time: {}\n\n'.format(
+    #         profit,mid, mid_size, quote, quote_size, base , base_size , date_time))
+    #     # 开始逆循环套利
+    #     if order_flag:
+    #         await negative_trade(exchange, p2_trade_pair_order, p3_trade_pair_order, p1_trade_pair_order, mid_size, quote_size, base_size, price_p2_bid1,price_p2_ask1,price_p3_ask1, price_p1_bid1)
+    #     await exchange.close()
+    # else:
+    #     await exchange.close()
 
 '''
     正循环套利
@@ -626,7 +636,7 @@ worker_thread = threading.Thread(target=print_stream_data_from_stream_buffer, ar
 worker_thread.start()
 
 
-print('before proxy ip is {}'.format(get_host_ip()))
+# print('before proxy ip is {}'.format(get_host_ip()))
 set_proxy()
 markets = []
 for base in good_coin:
