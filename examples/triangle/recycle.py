@@ -2,7 +2,7 @@ import time
 import threading
 
 wait_time_in_second  = 180
-#回收未成交的钱
+# recycle 取消未成交的挂单,收回所有钱
 orderData = {}
 def recycle(exchange, orderData={}):
     while True:

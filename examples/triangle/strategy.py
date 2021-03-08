@@ -12,13 +12,12 @@ import time
 import order
 from datetime import datetime
 
+cost_P1 = 0.0075
+cost_P2 = 0.0075
+cost_P3 = 0.0075
 
-cost_P1 = 0.00075
-cost_P2 = 0.00075
-cost_P3 = 0.00075
 
-
-slippage = 0.00075
+slippage = 0.0075
 delay = 0.8
 # 最小下单价格(usdt)
 min_notional = 10
@@ -45,7 +44,7 @@ sandbox_mode = False
 order_multiple = 2
 
 #盈利点数 
-profit_slippage = -0.00075
+profit_slippage = 0
 
 
 
@@ -53,15 +52,6 @@ profit_slippage = -0.00075
 
 # 在指定交易所寻找三角套利机会，根据P3与P2/P1大小关系进行套利，暂不考虑滑点和手续费，目标保持base,quote数量不变，使mid数量增多
 async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT', tickerData={}, orderData ={}):
-    #print('-----find_trade_chance开始在交易所{}寻找三角套利机会,base:{},quote:{},mid:{}'.format(exchange.name,base,quote,mid))
-    # try:
-    #     markets =  await exchange.load_markets()
-    #     for market in markets:
-    #         print('+++++++++++',market)
-    # except Exception as e:
-    #     print('load_markets e is {} ,exchange is {}'.format(e.args[0],exchange.name))
-    #     await exchange.close()
-    #     return
     p1_trade_pair = quote +  mid #P1 symbol
     p2_trade_pair = base + quote #P2 symbol
     p3_trade_pair = base + mid #P3 symbol
@@ -71,7 +61,6 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT', tickerDa
     p3_trade_pair_order = base + "/" +mid #P3 symbol
 
 
-    print('P1:{},P2:{},P3: {}'.format(p1_trade_pair,p2_trade_pair,p3_trade_pair))
     if len(tickerData) < 3:
         print("tickerData<3")
         return
@@ -86,7 +75,7 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT', tickerDa
    
     if p2_trade_pair not in tickerData:
         return
-    print(price_p1_bid1, price_p1_ask1, size_p1_bid1,size_p1_ask1)
+    #print(price_p1_bid1, price_p1_ask1, size_p1_bid1,size_p1_ask1)
     # P2
     price_p2_bid1 = float(tickerData[p2_trade_pair]['bid'] if tickerData[p2_trade_pair]['bid'] else None)
     price_p2_ask1 = float(tickerData[p2_trade_pair]['ask'] if tickerData[p2_trade_pair]['ask'] else None)
@@ -127,12 +116,6 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT', tickerDa
           return
 
 
-    # TODO 手续费  
-    # if exchange.has['fetchTradingFees']:
-    #     fees = exchange.fetchTradingFees(code, since, limit, params)
-    # else:
-    #     raise Exception (exchange.id + ' does not have the fetch_deposits method')
-    #date_time = exchange.last_response_headers['Date']
 
     #检查正循环套利
     '''
@@ -150,13 +133,13 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT', tickerDa
     mid_size = min_notional * 2
 
     positive_buy = (1 + slippage) * price_p1_ask1 * price_p2_ask1  * (1 + cost_P1) * (1 + cost_P2)
-    positive_sell  =  price_p3_bid1 * (1 - slippage) * (1 - cost_P3)
+    positive_sell  =  price_p3_bid1 * (1 - slippage) / (1 + cost_P3)
 
-    negative_sell = (1 - slippage) * price_p1_bid1 * price_p2_bid1 *  (1 - cost_P1) * (1 - cost_P2)
+    negative_sell = (1 - slippage) * price_p1_bid1 * price_p2_bid1 /((1 + cost_P1) * (1 + cost_P2))
     negative_buy = price_p3_ask1 * (1 + slippage) * (1 + cost_P3)
 
-    print("positive unit profit:", positive_sell - positive_buy)
-    print("nagative unit profit", negative_sell - negative_buy)
+    print("{}-{}-{} positive unit profit:{}".format(mid,quote,base, positive_sell - positive_buy))
+    print("{}-{}-{} nagative unit profit:{}".format(mid,quote,base, negative_sell - negative_buy))
     if positive_sell - positive_buy > profit_slippage:
         quote_size = mid_size / (price_p1_ask1 * (1+cost_P1) *  (1 + slippage) )
         base_size = quote_size / ( price_p2_ask1 * (1+cost_P2)  * (1 + slippage) )
@@ -251,10 +234,10 @@ async def postive_trade(exchange,mid,quote,base,p1, p2, p3, mid_size, quote_size
         result = await order.hedge_should_sell(exchange, p3, base_size, price_p3_bid1, delay)
     except Exception as e:
         print('create_order e is {} ,exchange is {}'.format(e.args[0],exchange.name))
-        fillOrderRecord(result, orderData)
+        filledOrderRecord(result, orderData)
         return
 
-    fillOrderRecord(result, orderData)
+    filledOrderRecord(result, orderData)
     print('结束正向套利 postive_trade,base_size{} is {}'.format(base,base_size))
 
 
@@ -290,15 +273,15 @@ async def negative_trade(exchange,mid,quote,base, p3, p2, p1,mid_size, quote_siz
         result = await order.hedge_should_sell(exchange,p1, quote_size, price_p1_bid1, delay)  # 3
         # TODO 要不要sleep
     except Exception as e:
-        fillOrderRecord(result, orderData)
+        filledOrderRecord(result, orderData)
         print('create_order e is {} ,exchange is {}'.format(e.args[0],exchange.name))
         return
-    fillOrderRecord(result, orderData)
+    filledOrderRecord(result, orderData)
     print('结束逆向套利 negative_trade ,base_size is {}'.format(base_size))
 
 
 
-def fillOrderRecord(result={},orderData={}):
+def filledOrderRecord(result={},orderData={}):
     if "id" in result and  (result["status"] == "closed" or result["status"] == "filled"): #第三步直接成功
         print('结束套利成功 negative_trade')
         return
