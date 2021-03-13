@@ -13,7 +13,7 @@ from time import sleep
 #   cpu_util_hist_metric.observe(float(cpu_util))
 #   print('cpu util is: {}'.format(cpu_util))
 #   res = push_to_gateway('localhost:9091', job='cpu_stats', registry=registry)
-#   print('push_to_gateway result is:', str(res))
+#   print('push_to_gaTeway result is:', str(res))
 #   sleep(0.01)
 
 

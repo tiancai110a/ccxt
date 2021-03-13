@@ -1,6 +1,6 @@
 import socket
 import ccxt.async_support as ccxta
-
+import os
 config_key = dict()
 config_key['binance'] = ['i3bEQ2PECV68BDMRXuQO1nWvn8WNr2mXa1RCJs8MB1GK6Ge0qcxjrOomutR0QkU5','QlFZ6xbAQ6myXWXYoBKrwXwbuLM57tSRxNwxOWUqaSFsI3GJCzZ21BoI40trTknU']
 proxy_flag = False
@@ -8,8 +8,8 @@ proxy_flag = False
 
 def set_proxy():
     if proxy_flag:
-        os.environ.setdefault('http_proxy', 'http://127.0.0.1:1087')
-        os.environ.setdefault('https_proxy', 'http://127.0.0.1:1087')
+        os.environ.setdefault('http_proxy', 'http://127.0.0.1:1080')
+        os.environ.setdefault('https_proxy', 'http://127.0.0.1:1080')
 
 # 设置交易所key
 def set_exchange_key(exchange,good_list):

@@ -13,6 +13,7 @@ import order
 import recycle
 
 from datetime import datetime
+from prometheus_client import CollectorRegistry, Gauge, push_to_gateway
 
 cost_P1 = 0.0075
 cost_P2 = 0.0075
@@ -21,7 +22,7 @@ cost_P3 = 0.0075
 
 slippage = 0.0075
 delay = 0.8
-
+grafana_path = '101.32.74.171:9091'
 
 
 # 交易相关常量
@@ -48,7 +49,8 @@ profit_slippage = 0
 
 mid_size = recycle.min_notional * 2
 
-
+registry = CollectorRegistry()
+g = Gauge('proifit_diff_ratio', 'profit', registry=registry)
 
 
 
@@ -139,9 +141,19 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT', ticker_d
 
     negative_sell = (1 - slippage) * price_p1_bid1 * price_p2_bid1 /((1 + cost_P1) * (1 + cost_P2))
     negative_buy = price_p3_ask1 * (1 + slippage) * (1 + cost_P3)
+    positice_unit = (positive_sell - positive_buy)/price_p3_ask1
+    nagative_unit = (negative_sell - negative_buy)/price_p3_ask1
 
-    print("{}-{}-{} positive unit profit:{}".format(mid,quote,base, positive_sell - positive_buy))
-    print("{}-{}-{} nagative unit profit:{}".format(mid,quote,base, negative_sell - negative_buy))
+    g.set(float(positice_unit))
+    res =push_to_gateway(grafana_path, job='triangle_'+mid+'-' + quote+'-' + base + "_p", registry=registry)
+
+
+    g.set(float(nagative_unit))
+    res = push_to_gateway(grafana_path, job='triangle_' + mid + '-' + quote + '-' + base + "_n", registry=registry)
+    
+
+    # print("{}-{}-{} positive unit profit:{}".format(mid,quote,base, positice_unit))
+    # print("{}-{}-{} nagative unit profit:{}".format(mid,quote,base, nagative_unit))
     if positive_sell - positive_buy > profit_slippage:
         quote_size = mid_size / (price_p1_ask1 * (1+cost_P1) *  (1 + slippage) )
         base_size = quote_size / ( price_p2_ask1 * (1+cost_P2)  * (1 + slippage) )

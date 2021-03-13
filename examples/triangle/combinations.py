@@ -4,7 +4,6 @@ from itertools import combinations
 
 import ccxt
 import time
-from datetime import datetime
 import asyncio
 config_key={}
 config_key['binance'] = ['i3bEQ2PECV68BDMRXuQO1nWvn8WNr2mXa1RCJs8MB1GK6Ge0qcxjrOomutR0QkU5','QlFZ6xbAQ6myXWXYoBKrwXwbuLM57tSRxNwxOWUqaSFsI3GJCzZ21BoI40trTknU']

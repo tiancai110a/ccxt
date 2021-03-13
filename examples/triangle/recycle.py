@@ -1,6 +1,6 @@
 import time
-import threading
-import order 
+import order
+from datetime import datetime
 wait_time_in_second  = 10 #s
 # recycle 取消未成交的挂单,收回所有钱,把所钱转回usdt
 order_data = {}
@@ -11,7 +11,10 @@ mid_size = min_notional * 2
 def recycle(exchange, order_data={}):
     key_list = cancel_orders(exchange, order_data)
     time.sleep(1)
-    recycling_money(exchange, order_data,key_list)    
+    recycling_money(exchange, order_data, key_list)
+    if key_list is not None:
+        for i in key_list:
+            order_data.remove(i)
 
 
 def cancel_orders(exchange, order_data={}):
@@ -29,6 +32,8 @@ def cancel_orders(exchange, order_data={}):
 # 正向, 第二步没成功 卖quote,第三步没成功 卖base
 # 负向, 第二步没成功 卖base,第三步没成功 卖quote
 def recycling_money(exchange, order_data={}, key_list=[]):
+    if key_list is None:
+        return
     for i in key_list:
         t = order_data[r]
         symbol = ""

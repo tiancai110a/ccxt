@@ -31,7 +31,6 @@ def print_stream_data_from_stream_buffer(binance_websocket_api_manager):
         if binance_websocket_api_manager.is_manager_stopping():
             exit(0)
         oldest_stream_data_from_stream_buffer = binance_websocket_api_manager.pop_stream_data_from_stream_buffer()
-        time.sleep(0.01)
         if oldest_stream_data_from_stream_buffer is False:
             time.sleep(0.01)
         else:
@@ -53,8 +52,9 @@ def trigger():
     global good_exchange_list
     good_exchange_list = utils.get_exchange_list(good_exchange_name)
     cnt = 0
+    trade_pairs = pairs.get_trade_pairs()
     while True:
-        tick(loop)
+        tick(loop, trade_pairs)
         time.sleep(0.01)
         cnt = cnt + 1 
         if cnt >= 5000:
@@ -64,11 +64,11 @@ def trigger():
                 recycle.recycle(exchange, order_data)
     time.sleep(10)
 
-def tick(loop):
+def tick(loop, trade_pairs):
     global good_exchange_list
     taskList = []
     for exchange in good_exchange_list:
-        for trade_symbol in pairs.get_trade_pairs():
+        for trade_symbol in trade_pairs:
             taskList.append(strategy.find_trade_chance(exchange, trade_symbol[0], trade_symbol[1], default_mid_cur,ticker_data, order_data))
     loop.run_until_complete(asyncio.gather(*taskList))
 
