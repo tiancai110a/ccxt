@@ -13,7 +13,7 @@ cost_P3 = 0.0075
 slippage = 0.0075
 
 
-tickerData ={}
+ticker_data ={}
 binance_websocket_api_manager = BinanceWebSocketApiManager()
 registry = CollectorRegistry()
 g = Gauge('unit_proifit_diff', 'profit', registry=registry)
@@ -32,12 +32,12 @@ def print_stream_data_from_stream_buffer(binance_websocket_api_manager):
                 if 'data' not in data:
                     continue
                 symbol = data['data']['s']
-                if symbol not in tickerData:
-                    tickerData[symbol] ={}
-                tickerData[symbol]['bid'] = data['data']['b']
-                tickerData[symbol]['bidsize'] = data['data']['B']
-                tickerData[symbol]['ask'] = data['data']['a']
-                tickerData[symbol]['asksize'] = data['data']['A']
+                if symbol not in ticker_data:
+                    ticker_data[symbol] ={}
+                ticker_data[symbol]['bid'] = data['data']['b']
+                ticker_data[symbol]['bidsize'] = data['data']['B']
+                ticker_data[symbol]['ask'] = data['data']['a']
+                ticker_data[symbol]['asksize'] = data['data']['A']
                 
             except Exception as e:
                 print('print_stream_data_from_stream_buffer e is {}'.format(e.args[0]))
@@ -45,7 +45,7 @@ def print_stream_data_from_stream_buffer(binance_websocket_api_manager):
 
 
 
-def calc_chance(base='EOS',quote='BTC',mid='USDT', tickerData={}):
+def calc_chance(base='EOS',quote='BTC',mid='USDT', ticker_data={}):
     p1_trade_pair = quote +  mid #P1 symbol
     p2_trade_pair = base + quote #P2 symbol
     p3_trade_pair = base + mid #P3 symbol
@@ -54,39 +54,39 @@ def calc_chance(base='EOS',quote='BTC',mid='USDT', tickerData={}):
     p2_trade_pair_order = base + "/" +quote #P2 symbol
     p3_trade_pair_order = base + "/" +mid #P3 symbol
 
-    if p1_trade_pair not in tickerData or p2_trade_pair not in tickerData or p3_trade_pair not in tickerData:
+    if p1_trade_pair not in ticker_data or p2_trade_pair not in ticker_data or p3_trade_pair not in ticker_data:
         return 
 
-    if len(tickerData) < 3:
-        print("tickerData<3")
+    if len(ticker_data) < 3:
+        print("ticker_data<3")
         return
     # P1
-    if p1_trade_pair not in tickerData:
+    if p1_trade_pair not in ticker_data:
         return
-    price_p1_bid1 = float(tickerData[p1_trade_pair]['bid'] if tickerData[p1_trade_pair]['bid'] else None)
-    price_p1_ask1 = float(tickerData[p1_trade_pair]['ask'] if tickerData[p1_trade_pair]['ask'] else None)
+    price_p1_bid1 = float(ticker_data[p1_trade_pair]['bid'] if ticker_data[p1_trade_pair]['bid'] else None)
+    price_p1_ask1 = float(ticker_data[p1_trade_pair]['ask'] if ticker_data[p1_trade_pair]['ask'] else None)
 
-    size_p1_bid1 =  float(tickerData[p1_trade_pair]['bidsize'] if tickerData[p1_trade_pair]['bidsize'] else None)
-    size_p1_ask1 =  float(tickerData[p1_trade_pair]['asksize'] if tickerData[p1_trade_pair]['asksize'] else None)
+    size_p1_bid1 =  float(ticker_data[p1_trade_pair]['bidsize'] if ticker_data[p1_trade_pair]['bidsize'] else None)
+    size_p1_ask1 =  float(ticker_data[p1_trade_pair]['asksize'] if ticker_data[p1_trade_pair]['asksize'] else None)
    
-    if p2_trade_pair not in tickerData:
+    if p2_trade_pair not in ticker_data:
         return
     #print(price_p1_bid1, price_p1_ask1, size_p1_bid1,size_p1_ask1)
     # P2
-    price_p2_bid1 = float(tickerData[p2_trade_pair]['bid'] if tickerData[p2_trade_pair]['bid'] else None)
-    price_p2_ask1 = float(tickerData[p2_trade_pair]['ask'] if tickerData[p2_trade_pair]['ask'] else None)
-    size_p2_bid1 = float(tickerData[p2_trade_pair]['bidsize'] if tickerData[p2_trade_pair]['bidsize'] else None)
-    size_p2_ask1 = float(tickerData[p2_trade_pair]['asksize'] if tickerData[p2_trade_pair]['asksize'] else None)
+    price_p2_bid1 = float(ticker_data[p2_trade_pair]['bid'] if ticker_data[p2_trade_pair]['bid'] else None)
+    price_p2_ask1 = float(ticker_data[p2_trade_pair]['ask'] if ticker_data[p2_trade_pair]['ask'] else None)
+    size_p2_bid1 = float(ticker_data[p2_trade_pair]['bidsize'] if ticker_data[p2_trade_pair]['bidsize'] else None)
+    size_p2_ask1 = float(ticker_data[p2_trade_pair]['asksize'] if ticker_data[p2_trade_pair]['asksize'] else None)
    
 
-    if p3_trade_pair not in tickerData:
+    if p3_trade_pair not in ticker_data:
         return
     # P3
-    price_p3_bid1 = float(tickerData[p3_trade_pair]['bid'] if tickerData[p3_trade_pair]['bid'] else None)
-    price_p3_ask1 = float(tickerData[p3_trade_pair]['ask'] if tickerData[p3_trade_pair]['ask'] else None)
+    price_p3_bid1 = float(ticker_data[p3_trade_pair]['bid'] if ticker_data[p3_trade_pair]['bid'] else None)
+    price_p3_ask1 = float(ticker_data[p3_trade_pair]['ask'] if ticker_data[p3_trade_pair]['ask'] else None)
 
-    size_p3_bid1 = float(tickerData[p3_trade_pair]['bidsize'] if tickerData[p3_trade_pair]['bidsize'] else None)
-    size_p3_ask1 = float(tickerData[p3_trade_pair]['asksize'] if tickerData[p3_trade_pair]['asksize'] else None)
+    size_p3_bid1 = float(ticker_data[p3_trade_pair]['bidsize'] if ticker_data[p3_trade_pair]['bidsize'] else None)
+    size_p3_ask1 = float(ticker_data[p3_trade_pair]['asksize'] if ticker_data[p3_trade_pair]['asksize'] else None)
    
 
     if price_p1_bid1 is None or \
@@ -133,14 +133,14 @@ worker_thread = threading.Thread(target=print_stream_data_from_stream_buffer, ar
 worker_thread.start()
 
 newmarkets = []
-for p in pairs.markets:
+for p in pairs.get_markets():
     a,b = p.split("/")
     newmarkets.append(a+b)
 
 marketsticker_stream_id = binance_websocket_api_manager.create_stream(["bookTicker"], newmarkets)
 while True:
-    for l in pairs.trade_pairs:
-        calc_chance(l[0],l[1],'USDT',tickerData)
+    for l in pairs.get_trade_pairs():
+        calc_chance(l[0],l[1],'USDT',ticker_data)
     time.sleep(1)
 
 

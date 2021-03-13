@@ -2,7 +2,8 @@ import asyncio
 import os
 import time
 import socket
-import ccxtpro
+import socket
+
 
 import ccxt.async_support as ccxta
 # TODO

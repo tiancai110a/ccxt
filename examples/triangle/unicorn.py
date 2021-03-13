@@ -6,7 +6,7 @@ import threading
 import json
 
 
-tickerData ={}
+ticker_data ={}
 
 # https://docs.python.org/3/library/logging.html#logging-levels
 logging.basicConfig(level=logging.DEBUG,
@@ -28,18 +28,18 @@ def print_stream_data_from_stream_buffer(binance_websocket_api_manager):
             try:
                 data = json.loads(oldest_stream_data_from_stream_buffer)
                 symbol = data['data']['s']
-                tickerData[symbol] ={}
-                tickerData[symbol]['bid'] = data['data']['b']
-                tickerData[symbol]['bidsize'] = data['data']['B']
-                tickerData[symbol]['ask'] = data['data']['a']
-                tickerData[symbol]['asksize'] = data['data']['A']
+                ticker_data[symbol] ={}
+                ticker_data[symbol]['bid'] = data['data']['b']
+                ticker_data[symbol]['bidsize'] = data['data']['B']
+                ticker_data[symbol]['ask'] = data['data']['a']
+                ticker_data[symbol]['asksize'] = data['data']['A']
             except Exception:
                 binance_websocket_api_manager.add_to_stream_buffer(oldest_stream_data_from_stream_buffer)
 
 
 def consumer():
    while True:
-        print("==>",tickerData)
+        print("==>",ticker_data)
         time.sleep(1)
 
 

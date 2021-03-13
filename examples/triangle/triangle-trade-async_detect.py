@@ -93,7 +93,7 @@ sandbox_mode = True
 
 proxy_flag = False
 
-tickerData ={}
+ticker_data ={}
 
 # logging.basicConfig(level=logging.DEBUG,
 #                     filename=os.path.basename(__file__) + '.log',
@@ -114,11 +114,11 @@ def print_stream_data_from_stream_buffer(binance_websocket_api_manager):
             try:
                 data = json.loads(oldest_stream_data_from_stream_buffer)
                 symbol = data['data']['s']
-                tickerData[symbol] ={}
-                tickerData[symbol]['bid'] = data['data']['b']
-                tickerData[symbol]['bidsize'] = data['data']['B']
-                tickerData[symbol]['ask'] = data['data']['a']
-                tickerData[symbol]['asksize'] = data['data']['A']
+                ticker_data[symbol] ={}
+                ticker_data[symbol]['bid'] = data['data']['b']
+                ticker_data[symbol]['bidsize'] = data['data']['B']
+                ticker_data[symbol]['ask'] = data['data']['a']
+                ticker_data[symbol]['asksize'] = data['data']['A']
                 time.sleep(0.01)
             except Exception:
                 binance_websocket_api_manager.add_to_stream_buffer(oldest_stream_data_from_stream_buffer)
@@ -165,41 +165,41 @@ async def find_trade_chance(exchange,base='EOS',quote='BTC',mid='USDT'):
 
 
     print('begin  ================>>>>>>>>   P1:{},P2:{},P3: {}'.format(p1_trade_pair,p2_trade_pair,p3_trade_pair))
-    if len(tickerData) < 3:
+    if len(ticker_data) < 3:
         return
 
-    if  p1_trade_pair not in  tickerData.keys():
+    if  p1_trade_pair not in  ticker_data.keys():
         print("{}  data not exist".format(p3_trade_pair))
         return
 
-    if  p2_trade_pair not in tickerData.keys():
+    if  p2_trade_pair not in ticker_data.keys():
         print("{} data not exist".format(p2_trade_pair))
         return
         
-    if p3_trade_pair not in tickerData.keys():
+    if p3_trade_pair not in ticker_data.keys():
         print("{} data not exist".format(p3_trade_pair))
         return
     # P1
-    price_p1_bid1 = float(tickerData[p1_trade_pair]['bid'] if tickerData[p1_trade_pair]['bid'] else 0)
-    price_p1_ask1 = float(tickerData[p1_trade_pair]['ask'] if tickerData[p1_trade_pair]['ask'] else 0)
+    price_p1_bid1 = float(ticker_data[p1_trade_pair]['bid'] if ticker_data[p1_trade_pair]['bid'] else 0)
+    price_p1_ask1 = float(ticker_data[p1_trade_pair]['ask'] if ticker_data[p1_trade_pair]['ask'] else 0)
 
-    size_p1_bid1 =  float(tickerData[p1_trade_pair]['bidsize'] if tickerData[p1_trade_pair]['bidsize'] else 0)
-    size_p1_ask1 =  float(tickerData[p1_trade_pair]['asksize'] if tickerData[p1_trade_pair]['asksize'] else 0)
+    size_p1_bid1 =  float(ticker_data[p1_trade_pair]['bidsize'] if ticker_data[p1_trade_pair]['bidsize'] else 0)
+    size_p1_ask1 =  float(ticker_data[p1_trade_pair]['asksize'] if ticker_data[p1_trade_pair]['asksize'] else 0)
    
     #print(price_p1_bid1, price_p1_ask1, size_p1_bid1,size_p1_ask1)
     # # P3
-    price_p2_bid1 = float(tickerData[p2_trade_pair]['bid'] if tickerData[p2_trade_pair]['bid'] else 0)
-    price_p2_ask1 = float(tickerData[p2_trade_pair]['ask'] if tickerData[p2_trade_pair]['ask'] else 0)
+    price_p2_bid1 = float(ticker_data[p2_trade_pair]['bid'] if ticker_data[p2_trade_pair]['bid'] else 0)
+    price_p2_ask1 = float(ticker_data[p2_trade_pair]['ask'] if ticker_data[p2_trade_pair]['ask'] else 0)
 
-    size_p2_bid1 = float(tickerData[p2_trade_pair]['bidsize'] if tickerData[p2_trade_pair]['bidsize'] else 0)
-    size_p2_ask1 = float(tickerData[p2_trade_pair]['asksize'] if tickerData[p2_trade_pair]['asksize'] else 0)
+    size_p2_bid1 = float(ticker_data[p2_trade_pair]['bidsize'] if ticker_data[p2_trade_pair]['bidsize'] else 0)
+    size_p2_ask1 = float(ticker_data[p2_trade_pair]['asksize'] if ticker_data[p2_trade_pair]['asksize'] else 0)
    
     # # P3
-    price_p3_bid1 = float(tickerData[p3_trade_pair]['bid'] if tickerData[p3_trade_pair]['bid'] else 0)
-    price_p3_ask1 = float(tickerData[p3_trade_pair]['ask'] if tickerData[p3_trade_pair]['ask'] else 0)
+    price_p3_bid1 = float(ticker_data[p3_trade_pair]['bid'] if ticker_data[p3_trade_pair]['bid'] else 0)
+    price_p3_ask1 = float(ticker_data[p3_trade_pair]['ask'] if ticker_data[p3_trade_pair]['ask'] else 0)
 
-    size_p3_bid1 = float(tickerData[p3_trade_pair]['bidsize'] if tickerData[p3_trade_pair]['bidsize'] else 0)
-    size_p3_ask1 = float(tickerData[p3_trade_pair]['asksize'] if tickerData[p3_trade_pair]['asksize'] else 0)
+    size_p3_bid1 = float(ticker_data[p3_trade_pair]['bidsize'] if ticker_data[p3_trade_pair]['bidsize'] else 0)
+    size_p3_ask1 = float(ticker_data[p3_trade_pair]['asksize'] if ticker_data[p3_trade_pair]['asksize'] else 0)
    
 
     if price_p1_bid1 == 0 or \
